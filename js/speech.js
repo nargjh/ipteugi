@@ -104,24 +104,49 @@ export const hasMyVoice = () => !!lastAudioUrl;
 
 // 소리 읽기
 let voice = null;
+const ACCENTS = [
+  { key: "us", label: "미국 영어", re: /en[-_]US/i },
+  { key: "gb", label: "영국 영어", re: /en[-_]GB/i },
+  { key: "au", label: "호주 영어", re: /en[-_]AU/i },
+  { key: "in", label: "인도 영어", re: /en[-_]IN/i },
+  { key: "ca", label: "캐나다 영어", re: /en[-_]CA/i },
+];
+function englishVoices() { return canSpeak ? speechSynthesis.getVoices().filter(v => /^en(-|_)/i.test(v.lang)) : []; }
 function pickVoice() {
-  if (!canSpeak) return null;
-  const vs = speechSynthesis.getVoices().filter(v => /^en(-|_)/i.test(v.lang));
+  const vs = englishVoices();
   const pref = ["Samantha", "Google US English", "Microsoft Aria", "Microsoft Jenny", "Ava", "Allison"];
   for (const p of pref) { const v = vs.find(v => v.name.includes(p)); if (v) return v; }
-  return vs.find(v => /en-US/i.test(v.lang)) || vs[0] || null;
+  return vs.find(v => /en[-_]US/i.test(v.lang)) || vs[0] || null;
 }
 if (canSpeak) {
   voice = pickVoice();
   speechSynthesis.onvoiceschanged = () => { voice = pickVoice(); };
 }
-export function speak(text, rate = 0.9) {
+/** 억양별 목소리 하나씩: [{key,label,voice}] */
+export function accentVoices() {
+  const vs = englishVoices();
+  const out = [];
+  for (const a of ACCENTS) {
+    const cands = vs.filter(v => a.re.test(v.lang));
+    if (cands.length) out.push({ ...a, voices: cands });
+  }
+  return out;
+}
+/** 아무 억양이나 하나(듣기 연습용) */
+export function randomAccent() {
+  const list = accentVoices();
+  if (!list.length) return null;
+  const a = list[Math.floor(Math.random() * list.length)];
+  return { key: a.key, label: a.label, voice: a.voices[Math.floor(Math.random() * a.voices.length)] };
+}
+export function speak(text, rate = 0.9, v = null) {
   if (!canSpeak) return Promise.resolve();
   speechSynthesis.cancel();
   return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US"; u.rate = rate;
-    if (voice) u.voice = voice;
+    const vv = v || voice;
+    u.lang = vv?.lang || "en-US"; u.rate = rate;
+    if (vv) u.voice = vv;
     u.onend = u.onerror = () => resolve();
     speechSynthesis.speak(u);
   });
