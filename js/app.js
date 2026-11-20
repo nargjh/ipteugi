@@ -1,16 +1,16 @@
-import { COURSES } from "../data/sentences.js?v=4";
-import { KEYS } from "../data/keys.js?v=4";
-import { TIPS } from "../data/tips.js?v=4";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=4";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=4";
-import * as store from "./store.js?v=4";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=4";
-import { grade, chips, normalize } from "./grade.js?v=4";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=4";
-import { mascot, coach } from "./mascot.js?v=4";
-import * as sp from "./speech.js?v=4";
+import { COURSES } from "../data/sentences.js?v=5";
+import { KEYS } from "../data/keys.js?v=5";
+import { TIPS } from "../data/tips.js?v=5";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=5";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=5";
+import * as store from "./store.js?v=5";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=5";
+import { grade, chips, normalize } from "./grade.js?v=5";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=5";
+import { mascot, coach } from "./mascot.js?v=5";
+import * as sp from "./speech.js?v=5";
 
-export const VERSION = 4;
+export const VERSION = 5;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
@@ -267,9 +267,21 @@ function tilesHtml(s, hint) {
   return `<div class="tiles-row" aria-hidden="true">${words.map((w, i) => {
     const core = w.replace(/[^A-Za-z0-9'’-]/g, "");
     const punct = w.replace(/[A-Za-z0-9'’-]/g, "");
-    const show = !core ? "" : hint >= 2 ? core : hint >= 1 ? core[0] + "·".repeat(Math.max(core.length - 1, 0)) : "";
+    const show = !core ? "" : hint >= 3 ? core : hint >= 2 ? core[0] + "·".repeat(Math.max(core.length - 1, 0)) : "";
     return `<span class="tile-w ${keys.has(i) ? "key" : ""} ${show ? "shown" : ""}">${esc(show || " ")}</span>${punct ? `<span class="muted" style="align-self:flex-end;font-weight:800">${esc(punct)}</span>` : ""}`;
   }).join("")}</div>`;
+}
+
+const hintLabel = (h) => h >= 3 ? "힌트 다 봄" : h === 0 ? "낱말 힌트" : h === 1 ? "첫 글자 보기" : "답 보기";
+function keyHintHtml(s, hint) {
+  const key = keyOf(s);
+  if (!key || hint < 1) return "";
+  return `<div class="keyhint">💡 <b>'${esc(key[0])}'</b>는 영어로 <mark>${esc(key[1])}</mark></div>`;
+}
+function thinkLine(s) {
+  const key = keyOf(s);
+  if (!key && !s.tip) return "";
+  return `<div class="think">💡 <b>이렇게 생각해요</b><br>${key ? `${esc(key[0])} → <mark>${esc(key[1])}</mark>` : ""}${key && s.tip ? " · " : ""}${s.tip ? esc(s.tip) : ""}</div>`;
 }
 
 // ── 말하기 ──────────────────────────────
@@ -283,6 +295,7 @@ function speak() {
     <div class="card">
       <div class="row between"><span class="tag ${current.isReview || current.retried ? "review" : ""}">${tagLabel}</span><span class="tag plain">${esc(s.group)} · ${esc(s.when)}</span></div>
       <p class="ko">${markPhrase(s.ko, key?.[0])}</p>
+      <div id="keyHint">${keyHintHtml(s, current.hint)}</div>
       <div id="tiles">${tilesHtml(s, current.hint)}</div>
       <div class="card-foot"><span>영어로 말해 봐요</span><span>${s.en.split(/\s+/).length}낱말</span></div>
     </div>
@@ -291,7 +304,7 @@ function speak() {
     <div class="dock">
       <button class="giveup" id="giveup">모르겠어요</button>
       <div class="dock-row">
-        <button class="side-btn" id="hintBtn">${I.bulb}<span id="hintTxt">${current.hint >= 2 ? "힌트 다 봄" : current.hint ? "힌트 더 보기" : "힌트 보기"}</span></button>
+        <button class="side-btn" id="hintBtn">${I.bulb}<span id="hintTxt">${hintLabel(current.hint)}</span></button>
         <button class="mic" id="mic" aria-pressed="false" aria-label="말하기 시작" ${sp.canListen && !sp.inAppBrowser ? "" : "disabled"}>${I.mic}</button>
         <button class="side-btn" id="blocks">${I.hand}지금은<br>말할 수 없어요</button>
       </div>
@@ -302,10 +315,11 @@ function speak() {
   bindQuit();
   micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text) => finish(text, "voice") });
   on("#hintBtn", () => {
-    if (current.hint >= 2) return;
-    current.hint++; current.hinted = true;
+    if (current.hint >= 3) return;
+    current.hint++; if (current.hint >= 2) current.hinted = true; // 낱말 뜻 힌트만 보면 별은 그대로
+    $("#keyHint").innerHTML = keyHintHtml(s, current.hint);
     $("#tiles").innerHTML = tilesHtml(s, current.hint);
-    $("#hintTxt").textContent = current.hint >= 2 ? "힌트 다 봄" : "힌트 더 보기";
+    $("#hintTxt").textContent = hintLabel(current.hint);
   });
   on("#blocks", () => go("blocks"));
   on("#giveup", () => finish("", "giveup"));
@@ -402,18 +416,13 @@ function result() {
         <div class="en">${enHtml}</div>
         ${!res.isMain ? `<p class="small muted" style="margin:4px 0 0">대표 정답: ${esc(s.en)}</p>` : ""}
         <p class="small" style="margin:6px 0 0">${markPhrase(s.ko, key?.[0])}</p>
-        <div class="chips">
-          ${key ? `<span class="chip">핵심 표현 <b>${esc(key[1])}</b> ${esc(key[0])}</span>` : ""}
-          <span class="chip">상황 <b>${esc(s.when)}</b></span>
-        </div>
+        ${thinkLine(s)}
+        <div class="chips"><span class="chip">상황 <b>${esc(s.when)}</b></span></div>
         ${soundBox(s)}
-        <details class="more" ${verdict === "wrong" ? "open" : ""}>
-          <summary>자세히 보기 ▾</summary>
-          <dl>
-            ${s.tip ? `<dt>문장 구조</dt><dd>${esc(s.tip)}</dd>` : ""}
-            ${others.length ? `<dt>이렇게 말해도 맞아요</dt><dd>${others.map(esc).join("<br>")}</dd>` : ""}
-          </dl>
-        </details>
+        ${others.length ? `<details class="more">
+          <summary>이렇게 말해도 맞아요 ▾</summary>
+          <dl><dd>${others.map(esc).join("<br>")}</dd></dl>
+        </details>` : ""}
       </div>
     </div>
     <div class="grow"></div>
@@ -448,6 +457,7 @@ function repeat3() {
       <p class="small muted" style="margin:6px 0 0">${esc(s.ko)}</p>
       <div class="play-row" style="justify-content:center;margin-top:12px">
         <button class="chip-btn" id="pNormal">${I.speaker}듣기</button><button class="chip-btn" id="pSlow">${I.slow}천천히</button></div>
+      ${thinkLine(s)}
       ${soundBox(s)}
     </div>
     <div class="dots" id="dots"><i></i><i></i><i></i></div>
@@ -563,6 +573,7 @@ function todayList() {
           <div style="margin-top:6px;font-weight:800">${markPhrase(s.ko, key?.[0])}</div>
           <div class="en-reveal ${cover ? "covered" : ""}" data-reveal title="눌러서 보기">
             <div class="en" style="font-size:18px;line-height:27px;margin-top:6px">${markPhrase(s.en, key?.[1])}</div>
+            ${key ? `<div class="small" style="margin-top:2px">💡 ${esc(key[0])} → <b>${esc(key[1])}</b>${s.tip ? ` · <span class="muted">${esc(s.tip)}</span>` : ""}</div>` : ""}
             ${tip ? `<div class="small muted" style="margin-top:2px">🗣️ ${esc(tip.sound)}</div>` : ""}
             ${tip?.short ? `<div class="small" style="margin-top:2px">짧게 <b>${esc(tip.short)}</b> <span class="muted">${esc(tip.shortSound)}</span></div>` : ""}
           </div>
