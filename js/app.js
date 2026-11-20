@@ -1,16 +1,16 @@
-import { COURSES } from "../data/sentences.js?v=5";
-import { KEYS } from "../data/keys.js?v=5";
-import { TIPS } from "../data/tips.js?v=5";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=5";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=5";
-import * as store from "./store.js?v=5";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=5";
-import { grade, chips, normalize } from "./grade.js?v=5";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=5";
-import { mascot, coach } from "./mascot.js?v=5";
-import * as sp from "./speech.js?v=5";
+import { COURSES } from "../data/sentences.js?v=6";
+import { KEYS } from "../data/keys.js?v=6";
+import { TIPS } from "../data/tips.js?v=6";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=6";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=6";
+import * as store from "./store.js?v=6";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=6";
+import { grade, chips, normalize } from "./grade.js?v=6";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=6";
+import { mascot, coach } from "./mascot.js?v=6";
+import * as sp from "./speech.js?v=6";
 
-export const VERSION = 5;
+export const VERSION = 6;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
@@ -381,9 +381,9 @@ function soundBox(s) {
   const t = tipOf(s); if (!t) return "";
   return `<div class="tipbox">
     <div class="tip-row"><span class="tip-k">빨리 말하면</span><span class="tip-v">${esc(t.sound)}</span>
-      <button class="chip-btn mini" data-say="${esc(s.en)}" data-rate="1.05" aria-label="빠르게 듣기">${I.speaker}</button></div>
+      <button class="chip-btn mini" data-say="${esc(s.en)}" data-rate="1.0" aria-label="빠르게 듣기">${I.speaker}</button></div>
     ${t.short ? `<div class="tip-row"><span class="tip-k">짧게는</span><span class="tip-v"><b>${esc(t.short)}</b><br><span class="muted">${esc(t.shortSound)}</span></span>
-      <button class="chip-btn mini" data-say="${esc(t.short)}" data-rate="1" aria-label="짧은 말 듣기">${I.speaker}</button></div>` : ""}
+      <button class="chip-btn mini" data-say="${esc(t.short)}" data-rate="0.9" aria-label="짧은 말 듣기">${I.speaker}</button></div>` : ""}
   </div>`;
 }
 function bindSay() {
@@ -629,7 +629,7 @@ function listenSound(item) {
 function listen() {
   const item = L_BY_ID[lsession.queue[lsession.index]];
   const total = lsession.queue.length, choices = listenChoices(item), voice = sp.randomAccent();
-  let rate = 1.0, plays = 0, answered = false;
+  let rate = 0.9, plays = 0, answered = false;
   app.innerHTML = `
   <section class="screen">
     <div class="topbar">
@@ -641,7 +641,7 @@ function listen() {
     <div class="listen-stage">
       ${mascot("listen", 76)}
       <button class="big-play" id="play" aria-label="듣기">${I.play}</button>
-      <div class="seg"><button aria-pressed="true" data-r="1">보통</button><button aria-pressed="false" data-r="1.15">빠르게</button><button aria-pressed="false" data-r="0.7">천천히</button></div>
+      <div class="seg"><button aria-pressed="true" data-r="0.9">보통</button><button aria-pressed="false" data-r="1.05">빠르게</button><button aria-pressed="false" data-r="0.65">천천히</button></div>
       <p class="small muted" style="margin:0">눌러서 듣고, 무슨 뜻인지 골라요</p>
     </div>
     <div class="choices" id="choices">${choices.map((c, k) => `<button class="choice" data-k="${k}">${esc(c)}</button>`).join("")}
@@ -661,7 +661,7 @@ function listen() {
     if (!ok && b.dataset.k !== "x") b.classList.add("wrong");
     recordListen(item.id, ok);
     lsession.results[item.id] = ok;
-    if (voice) $("#accent").textContent = `🌎 ${voice.label}`;
+    if (voice && !sp.hasRecording(item.en)) $("#accent").textContent = `🌎 ${voice.label}`;
     const sound = listenSound(item);
     $("#reveal").innerHTML = `
       ${ok ? coach("cheer", plays <= 1 ? "한 번에 알아들었어요!" : "잘 들었어요!", "글자를 보며 한 번 더 들어 봐요", "good") : coach("oops", "이렇게 들렸던 거예요", "연음 소리를 보면서 다시 들어 봐요", "bad")}
@@ -701,7 +701,7 @@ function listenDone() {
     </div>
     <div class="card tight list">${lsession.queue.map(id => { const it = L_BY_ID[id]; return `
       <div class="row between"><span class="grow"><b>${esc(it.en)}</b><br><span class="small muted">${esc(it.ko)} · ${esc(listenSound(it))}</span></span>
-      <span>${lsession.results[id] ? "✅" : "🔁"}</span><button class="chip-btn mini" data-say="${esc(it.en)}" data-rate="1">${I.speaker}</button></div>`; }).join("")}</div>
+      <span>${lsession.results[id] ? "✅" : "🔁"}</span><button class="chip-btn mini" data-say="${esc(it.en)}" data-rate="0.9">${I.speaker}</button></div>`; }).join("")}</div>
     <div class="grow"></div>
     <div class="btn-col"><button class="btn primary lg block" id="more">6문장 더 듣기</button><button class="btn ghost block" id="home">처음으로</button></div>
   </section>`;

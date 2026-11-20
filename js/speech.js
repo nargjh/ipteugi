@@ -1,4 +1,5 @@
-// 말 받아쓰기(Web Speech) · 녹음(MediaRecorder) · 소리 읽기(speechSynthesis)
+// 말 받아쓰기(Web Speech) · 녹음(MediaRecorder) · 소리(Amara 녹음 → 없으면 speechSynthesis)
+import { AUDIO } from "../data/audio.js?v=6";
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const canListen = !!SR;
 export const canSpeak = "speechSynthesis" in window;
@@ -139,7 +140,22 @@ export function randomAccent() {
   const a = list[Math.floor(Math.random() * list.length)];
   return { key: a.key, label: a.label, voice: a.voices[Math.floor(Math.random() * a.voices.length)] };
 }
+// 녹음 파일 재생: rate 0.9(기본) = 원래 빠르기
+let audioEl = null, audioDone = null;
+export const hasRecording = (text) => !!AUDIO[text];
+function playRecording(text, rate) {
+  stopSpeaking();
+  return new Promise((resolve) => {
+    audioEl = new Audio(AUDIO[text]);
+    audioEl.preservesPitch = true;
+    audioEl.playbackRate = Math.min(1.4, Math.max(0.5, rate / 0.9));
+    audioDone = resolve;
+    audioEl.onended = audioEl.onerror = () => { audioDone = null; resolve(); };
+    audioEl.play().catch(() => { audioDone = null; resolve(false); });
+  });
+}
 export function speak(text, rate = 0.9, v = null) {
+  if (AUDIO[text]) return playRecording(text, rate);
   if (!canSpeak) return Promise.resolve();
   speechSynthesis.cancel();
   return new Promise((resolve) => {
@@ -151,4 +167,7 @@ export function speak(text, rate = 0.9, v = null) {
     speechSynthesis.speak(u);
   });
 }
-export function stopSpeaking() { if (canSpeak) speechSynthesis.cancel(); }
+export function stopSpeaking() {
+  if (audioEl) { try { audioEl.pause(); } catch {} audioEl = null; if (audioDone) { const d = audioDone; audioDone = null; d(); } }
+  if (canSpeak) speechSynthesis.cancel();
+}
