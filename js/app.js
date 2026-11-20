@@ -1,9 +1,10 @@
-import { COURSES } from "../data/sentences.js";
-import * as store from "./store.js";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js";
-import { grade, chips, normalize } from "./grade.js";
-import * as sp from "./speech.js";
+import { COURSES } from "../data/sentences.js?v=3";
+import * as store from "./store.js?v=3";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=3";
+import { grade, chips, normalize } from "./grade.js?v=3";
+import * as sp from "./speech.js?v=3";
 
+export const VERSION = 3;
 const app = document.getElementById("app");
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
@@ -131,6 +132,7 @@ function home() {
       ${weekHtml()}
       ${other ? `<p class="xs muted" style="margin:10px 0 0">${esc(st.profiles[other].name)} 기록은 같은 폰에서 공부했을 때만 보여요.</p>` : ""}
     </div>
+    <p class="xs muted center" style="margin:0">판 ${VERSION}</p>
   </section>`;
 
   on("#who", () => go("pick"));
