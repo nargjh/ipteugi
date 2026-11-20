@@ -6,25 +6,31 @@ export const canSpeak = "speechSynthesis" in window;
 // 카카오톡·인스타 같은 앱 안 브라우저
 export const inAppBrowser = /KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\//i.test(navigator.userAgent);
 
+// 휴대폰: 녹음(MediaRecorder)이 마이크를 잡으면 받아쓰기가 아무것도 못 들음(안드로이드 크롬) → 녹음 끔
+export const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+export const canRecordWhileListening = !isMobile;
+
 let rec = null;
+export let lastError = "";
 let mediaRec = null, chunks = [], lastAudioUrl = null, stream = null;
 
 /**
  * 듣기 시작. handlers: onText(final, interim), onEnd(finalText, reason), onError(code)
  * 반환: stop() 함수
  */
-export function listen({ onText, onEnd, onError, record = true }) {
+export function listen({ onText, onEnd, onError, onState, record = false }) {
   if (!SR) { onError?.("unsupported"); return () => {}; }
   stopListening();
   let finalText = "";
   let interim = "";
   let stoppedByUser = false;
   let ended = false;
+  lastError = "";
 
   rec = new SR();
   rec.lang = "en-US";
   rec.interimResults = true;
-  rec.continuous = true;
+  rec.continuous = !isMobile; // 휴대폰은 한 문장 듣고 스스로 끝나는 모드가 안정적
   rec.maxAlternatives = 1;
 
   rec.onresult = (e) => {
@@ -38,7 +44,11 @@ export function listen({ onText, onEnd, onError, record = true }) {
     finalText = fin.trim();
     onText?.(finalText, interim.trim());
   };
+  rec.onstart = () => onState?.("start");
+  rec.onaudiostart = () => onState?.("audio");
+  rec.onspeechstart = () => onState?.("speech");
   rec.onerror = (e) => {
+    lastError = e.error;
     if (e.error === "no-speech" || e.error === "aborted") return;
     onError?.(e.error); // not-allowed, service-not-allowed, network, audio-capture
   };
@@ -52,7 +62,7 @@ export function listen({ onText, onEnd, onError, record = true }) {
   };
 
   try { rec.start(); } catch (err) { onError?.("start-failed"); return () => {}; }
-  if (record) startRecording();
+  if (record && canRecordWhileListening) startRecording();
 
   return () => { stoppedByUser = true; try { rec?.stop(); } catch {} };
 }

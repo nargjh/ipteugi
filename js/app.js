@@ -230,7 +230,7 @@ function speak() {
     setMic(true);
     tr.innerHTML = `<span class="placeholder">듣고 있어요…</span>`;
     stopFn = sp.listen({
-      record: !isIOS,
+      record: true,
       onText: (fin, interim) => { tr.innerHTML = `${esc(fin)} <span class="interim">${esc(interim)}</span>`; },
       onError: (code) => {
         setMic(false); stopFn = null;
@@ -240,7 +240,11 @@ function speak() {
       },
       onEnd: (text) => {
         setMic(false); stopFn = null;
-        if (!text.trim()) { tr.innerHTML = `<span class="placeholder">아무 말도 못 들었어요. 다시 눌러 말해 보세요.</span>`; return; }
+        if (!text.trim()) {
+          const why = sp.lastError === "no-speech" ? "소리가 안 들어왔어요. 폰 마이크(아래쪽)에 대고 또박또박 말해 보세요."
+            : "아무 말도 못 들었어요. 마이크를 누르고 «듣고 있어요»가 뜬 뒤에 말해 보세요.";
+          tr.innerHTML = `<span class="placeholder">${why}</span>`; return;
+        }
         finish(text, "voice");
       },
     });
