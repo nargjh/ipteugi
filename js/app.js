@@ -1,17 +1,17 @@
-import { COURSES } from "../data/sentences.js?v=10";
-import { KEYS } from "../data/keys.js?v=10";
-import { TIPS } from "../data/tips.js?v=10";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=10";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=10";
-import * as store from "./store.js?v=10";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=10";
-import { grade, gradeBest, chips, normalize } from "./grade.js?v=10";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=10";
-import { mascot, coach } from "./mascot.js?v=10";
-import { DIALOGS } from "../data/dialogs.js?v=10";
-import * as sp from "./speech.js?v=10";
+import { COURSES } from "../data/sentences.js?v=11";
+import { KEYS } from "../data/keys.js?v=11";
+import { TIPS } from "../data/tips.js?v=11";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=11";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=11";
+import * as store from "./store.js?v=11";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=11";
+import { grade, gradeBest, chips, normalize } from "./grade.js?v=11";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=11";
+import { mascot, coach } from "./mascot.js?v=11";
+import { DIALOGS } from "../data/dialogs.js?v=11";
+import * as sp from "./speech.js?v=11";
 
-export const VERSION = 10;
+export const VERSION = 11;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
