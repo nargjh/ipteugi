@@ -1,5 +1,5 @@
 // 말 받아쓰기(Web Speech) · 녹음(MediaRecorder) · 소리(Amara 녹음 → 없으면 speechSynthesis)
-import { AUDIO } from "../data/audio.js?v=11";
+import { AUDIO } from "../data/audio.js?v=12";
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const canListen = !!SR;
 export const canSpeak = "speechSynthesis" in window;
@@ -10,6 +10,7 @@ export const inAppBrowser = /KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|Line\//i
 // 휴대폰: 녹음(MediaRecorder)이 마이크를 잡으면 받아쓰기가 아무것도 못 들음(안드로이드 크롬) → 녹음 끔
 export const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 export const canRecordWhileListening = !isMobile;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 let rec = null;
 export let lastError = "";
@@ -31,11 +32,19 @@ export function listen({ onText, onEnd, onError, onState, record = false }) {
   rec = new SR();
   rec.lang = "en-US";
   rec.interimResults = true;
-  rec.continuous = !isMobile; // 휴대폰은 한 문장 듣고 스스로 끝나는 모드가 안정적
+  rec.continuous = !isIOS; // 잠깐 멈춰도 계속 듣기 · 아이폰 사파리는 계속 듣기가 불안정해 한 문장 모드
+  // 말이 끝나고 2.5초 조용하면 스스로 끝냄 · 아무 말 없이 9초면 끝냄
+  let lastHeard = Date.now(), heardAny = false;
+  const silenceTimer = setInterval(() => {
+    if (ended) { clearInterval(silenceTimer); return; }
+    const quiet = Date.now() - lastHeard;
+    if ((heardAny && quiet > 2500) || (!heardAny && quiet > 9000)) { clearInterval(silenceTimer); stoppedByUser = true; try { rec?.stop(); } catch {} }
+  }, 300);
   rec.maxAlternatives = 5;
   let finalAlts = [];
 
   rec.onresult = (e) => {
+    lastHeard = Date.now(); heardAny = true;
     interim = "";
     let fin = "";
     for (let i = 0; i < e.results.length; i++) {
@@ -61,6 +70,7 @@ export function listen({ onText, onEnd, onError, onState, record = false }) {
     onError?.(e.error); // not-allowed, service-not-allowed, network, audio-capture
   };
   rec.onend = () => {
+    clearInterval(silenceTimer);
     if (ended) return;
     ended = true;
     stopRecording();
