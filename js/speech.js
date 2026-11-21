@@ -1,5 +1,5 @@
 // 말 받아쓰기(Web Speech) · 녹음(MediaRecorder) · 소리(Amara 녹음 → 없으면 speechSynthesis)
-import { AUDIO } from "../data/audio.js?v=7";
+import { AUDIO } from "../data/audio.js?v=8";
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const canListen = !!SR;
 export const canSpeak = "speechSynthesis" in window;
@@ -32,7 +32,8 @@ export function listen({ onText, onEnd, onError, onState, record = false }) {
   rec.lang = "en-US";
   rec.interimResults = true;
   rec.continuous = !isMobile; // 휴대폰은 한 문장 듣고 스스로 끝나는 모드가 안정적
-  rec.maxAlternatives = 1;
+  rec.maxAlternatives = 5;
+  let finalAlts = [];
 
   rec.onresult = (e) => {
     interim = "";
@@ -43,6 +44,12 @@ export function listen({ onText, onEnd, onError, onState, record = false }) {
       else interim += r[0].transcript + " ";
     }
     finalText = fin.trim();
+    // 끝난 조각마다 후보를 바꿔 끼운 문장들
+    const finals = [...e.results].filter(r => r.isFinal);
+    const top = finals.map(r => r[0].transcript.trim());
+    const alts = new Set([top.join(" ")]);
+    finals.forEach((r, i) => { for (let k = 1; k < r.length; k++) { const c = top.slice(); c[i] = r[k].transcript.trim(); alts.add(c.join(" ")); } });
+    finalAlts = [...alts].filter(Boolean);
     onText?.(finalText, interim.trim());
   };
   rec.onstart = () => onState?.("start");
@@ -58,7 +65,10 @@ export function listen({ onText, onEnd, onError, onState, record = false }) {
     ended = true;
     stopRecording();
     const text = (finalText + " " + (stoppedByUser || !finalText ? interim : "")).trim();
-    onEnd?.(text, stoppedByUser ? "user" : "auto");
+    const alts = finalAlts.length ? [...finalAlts] : [];
+    if (text && !alts.includes(text)) alts.unshift(text);
+    if (!finalText && interim) alts.push(interim.trim());
+    onEnd?.(text, stoppedByUser ? "user" : "auto", alts);
     rec = null;
   };
 

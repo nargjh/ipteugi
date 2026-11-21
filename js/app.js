@@ -1,16 +1,16 @@
-import { COURSES } from "../data/sentences.js?v=7";
-import { KEYS } from "../data/keys.js?v=7";
-import { TIPS } from "../data/tips.js?v=7";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=7";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=7";
-import * as store from "./store.js?v=7";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=7";
-import { grade, chips, normalize } from "./grade.js?v=7";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=7";
-import { mascot, coach } from "./mascot.js?v=7";
-import * as sp from "./speech.js?v=7";
+import { COURSES } from "../data/sentences.js?v=8";
+import { KEYS } from "../data/keys.js?v=8";
+import { TIPS } from "../data/tips.js?v=8";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=8";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=8";
+import * as store from "./store.js?v=8";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=8";
+import { grade, gradeBest, chips, normalize } from "./grade.js?v=8";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=8";
+import { mascot, coach } from "./mascot.js?v=8";
+import * as sp from "./speech.js?v=8";
 
-export const VERSION = 7;
+export const VERSION = 8;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
@@ -126,13 +126,13 @@ function micControl({ btn, label, out, onDone }) {
         else if (code === "network") toast("인터넷이 필요해요. 지금은 낱말 블록으로 해 보세요.", 3500);
         else toast("마이크를 못 켰어요. 다시 눌러 보세요.");
       },
-      onEnd: (text) => {
+      onEnd: (text, _why, alts) => {
         set(false); stopFn = null;
         if (!text.trim()) {
           out.innerHTML = `${waveIc()}<span class="placeholder">${sp.lastError === "no-speech" ? "소리가 안 들어왔어요. 폰 아래쪽 마이크에 대고 또박또박 말해 보세요." : "아무 말도 못 들었어요. «듣는 중»이 뜬 뒤에 말해 보세요."}</span>`;
           return;
         }
-        onDone(text);
+        onDone(text, alts && alts.length ? alts : [text]);
       },
     });
   });
@@ -333,7 +333,7 @@ function speak() {
     </div>
   </section>`;
   bindQuit();
-  micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text) => finish(text, "voice") });
+  micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text, alts) => finish(text, "voice", alts) });
   on("#hintBtn", () => {
     if (current.hint >= 3) return;
     current.hint++; if (current.hint >= 2) current.hinted = true; // 낱말 뜻 힌트만 보면 별은 그대로
@@ -345,8 +345,10 @@ function speak() {
   on("#giveup", () => finish("", "giveup"));
 }
 
-function finish(said, mode) {
-  let res = grade(said, withShort(current.s));
+function finish(said, mode, alts) {
+  let res;
+  if (mode === "voice" && alts?.length) { const b = gradeBest(alts, withShort(current.s)); res = b.res; said = b.said || said; }
+  else res = grade(said, withShort(current.s));
   if (mode === "giveup") res = { ...grade(current.s.en, current.s), verdict: "wrong" }; // 대표 정답을 보여 줌
   if (mode === "blocks") res = { ...res, verdict: res.verdict === "exact" ? "close" : "wrong" };
   if (current.hinted && res.verdict === "exact") res.verdict = "close";
@@ -493,8 +495,8 @@ function repeat3() {
   on("#pNormal", () => sp.speak(s.en, rate));
   on("#pSlow", () => sp.speak(s.en, Math.max(0.55, rate - 0.3)));
   sp.speak(s.en, rate);
-  micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text) => {
-    const g = grade(text, withShort({ ...s, alt: [] }));
+  micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text, alts) => {
+    const g = gradeBest(alts, withShort({ ...s, alt: [] })).res;
     $("#target").innerHTML = g.targetMarks.map(m => `<span class="${m.ok ? "hit" : ""}">${esc(m.w)}</span>`).join(" ");
     if (g.verdict !== "wrong") {
       count++;
@@ -701,8 +703,8 @@ function listen() {
       <div class="sticky-bottom"><button class="btn primary lg block" id="lnext">${lsession.index + 1 < total ? "다음" : "끝"}</button></div>`;
     bindSay(); bindSave();
     on("#again1", play);
-    if ($("#rmic")) micControl({ btn: $("#rmic"), label: $("#rlabel"), out: $("#rsaid"), onDone: (text) => {
-      const g = grade(text, { en: item.replies[0], alt: item.replies.slice(1) });
+    if ($("#rmic")) micControl({ btn: $("#rmic"), label: $("#rlabel"), out: $("#rsaid"), onDone: (text, alts) => {
+      const g = gradeBest(alts, { en: item.replies[0], alt: item.replies.slice(1) }).res;
       $("#rsaid").innerHTML = g.verdict === "wrong"
         ? `<span class="placeholder">«${esc(text)}» — 위 대답을 듣고 한 번 더!</span>`
         : `<span>${stars(g.verdict === "exact" ? 3 : 2)} <b style="color:var(--success)">좋아요! «${esc(text)}»</b></span>`;
@@ -765,8 +767,8 @@ function drill() {
     sp.speak(s.en, rate);
     on("#prev", () => { i--; stopAll(); render(); });
     on("#nx", () => { stopAll(); if (i < ids.length - 1) { i++; render(); } else go("home"); });
-    micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text) => {
-      const g = grade(text, withShort(s));
+    micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text, alts) => {
+      const g = gradeBest(alts, withShort(s)).res;
       $("#target").innerHTML = g.targetMarks.map(m => `<span class="${m.ok ? "hit" : ""}">${esc(m.w)}</span>`).join(" ");
       $("#said").innerHTML = `${stars(verdictStars(g.verdict, "voice"))} <span>${esc(text)}</span>`;
       if (g.verdict !== "wrong" && i < ids.length - 1) setTimeout(() => { i++; render(); }, 1200);
