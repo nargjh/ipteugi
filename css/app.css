@@ -267,3 +267,8 @@ details.more dl { margin: 12px 0 0; display: grid; gap: 4px; } details.more dt {
 .keyhint { margin-top: 12px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--key-soft); font-size: 16px; line-height: 23px; font-weight: 700; }
 .think { margin-top: 12px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--warning-soft); font-size: 15px; line-height: 22px; text-align: left; }
 .think b { color: var(--warning); }
+
+/* 보관함 */
+.save-btn { min-height: 34px; padding: 0 12px; border-radius: var(--r-pill); border: 1px dashed var(--accent); background: transparent; color: var(--accent); font-size: 13px; font-weight: 800; cursor: pointer; }
+.save-btn.on { border-style: solid; background: var(--accent); color: var(--on-accent); }
+.tile.wide { grid-column: 1 / -1; min-height: 72px; background: linear-gradient(135deg, var(--accent-soft), var(--surface)); }

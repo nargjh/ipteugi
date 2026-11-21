@@ -1,16 +1,16 @@
-import { COURSES } from "../data/sentences.js?v=6";
-import { KEYS } from "../data/keys.js?v=6";
-import { TIPS } from "../data/tips.js?v=6";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=6";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=6";
-import * as store from "./store.js?v=6";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=6";
-import { grade, chips, normalize } from "./grade.js?v=6";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=6";
-import { mascot, coach } from "./mascot.js?v=6";
-import * as sp from "./speech.js?v=6";
+import { COURSES } from "../data/sentences.js?v=7";
+import { KEYS } from "../data/keys.js?v=7";
+import { TIPS } from "../data/tips.js?v=7";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=7";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=7";
+import * as store from "./store.js?v=7";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=7";
+import { grade, chips, normalize } from "./grade.js?v=7";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=7";
+import { mascot, coach } from "./mascot.js?v=7";
+import * as sp from "./speech.js?v=7";
 
-export const VERSION = 6;
+export const VERSION = 7;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
@@ -71,6 +71,25 @@ function totalXp(pid = store.get().activeProfile) {
 }
 const level = (xp) => ({ lv: Math.floor(xp / 100) + 1, p: xp % 100 });
 const graduatedCount = () => Object.values(store.progress().reviews).filter(r => r.state === "graduated").length;
+
+// ── 보관함 (잘 안 외워지는 문장 모으기) ──
+const savedList = () => { const pr = store.progress(); return pr.saved || (pr.saved = []); };
+const isSaved = (id) => savedList().includes(id);
+function toggleSave(id) {
+  const l = savedList(), i = l.indexOf(id);
+  if (i >= 0) l.splice(i, 1); else l.unshift(id);
+  store.save(); return i < 0;
+}
+const saveBtn = (id) => `<button class="save-btn ${isSaved(id) ? "on" : ""}" data-save="${esc(id)}" aria-pressed="${isSaved(id)}">${isSaved(id) ? "🔖 담김" : "🔖 보관함에 담기"}</button>`;
+function bindSave() {
+  $$("[data-save]").forEach(b => on(b, (e) => {
+    e.stopPropagation();
+    const now = toggleSave(b.dataset.save);
+    b.classList.toggle("on", now); b.setAttribute("aria-pressed", String(now));
+    b.textContent = now ? "🔖 담김" : "🔖 보관함에 담기";
+    toast(now ? "보관함에 담았어요" : "보관함에서 뺐어요", 1400);
+  }));
+}
 
 // ── 화면 상태 ───────────────────────────
 let session = null, current = null, lsession = null, stopFn = null, recTimer = null;
@@ -160,6 +179,7 @@ function home() {
       <span class="small muted">코스 ›</span>
     </button>
     <div class="tiles">
+      <button class="tile wide" id="savedBtn"><span class="ic">🔖</span><b>보관함 · ${savedList().length}개</b><span>잘 안 외워지는 문장을 모아 두고 다시 보기·듣기·말하기</span></button>
       <button class="tile" id="todayList"><span class="ic">📒</span><b>오늘 한 문장</b><span>${todayIds.length ? `${todayIds.length}문장 다시 보기·연습` : "오늘 공부하면 여기 모여요"}</span></button>
       <button class="tile" id="drill"><span class="ic">🔁</span><b>따라 말하기 특훈</b><span>들리는 대로 바로 따라 말하기</span></button>
       <button class="tile" id="notes"><span class="ic">✏️</span><b>내 노트</b><span>꼭 하고 싶은 말 · ${pr.notes.length}개</span></button>
@@ -221,7 +241,7 @@ function home() {
     nextSentence();
   });
   on("#course", () => go("courses")); on("#allCourses", () => go("courses"));
-  on("#todayList", () => go("todayList")); on("#drill", () => go("drill")); on("#notes", () => go("notes"));
+  on("#todayList", () => go("todayList")); on("#savedBtn", () => go("saved")); on("#drill", () => go("drill")); on("#notes", () => go("notes"));
   on("#lstart", () => startListen());
   $$("[data-lc]").forEach(b => on(b, () => { listenState().current = b.dataset.lc; store.save(); startListen(); }));
 }
@@ -259,7 +279,7 @@ function progressHeader() {
     <span class="stat trophy" title="정확히 말한 문장">${I.trophy}<span>${wins}/${total}</span></span>
   </div>`;
 }
-const bindQuit = () => on("#quit", () => go(session?.practice ? "todayList" : "home"));
+const bindQuit = () => on("#quit", () => go(session?.practice ? (session.from || "todayList") : "home"));
 
 function tilesHtml(s, hint) {
   const words = s.en.split(/\s+/);
@@ -417,7 +437,7 @@ function result() {
         ${!res.isMain ? `<p class="small muted" style="margin:4px 0 0">대표 정답: ${esc(s.en)}</p>` : ""}
         <p class="small" style="margin:6px 0 0">${markPhrase(s.ko, key?.[0])}</p>
         ${thinkLine(s)}
-        <div class="chips"><span class="chip">상황 <b>${esc(s.when)}</b></span></div>
+        <div class="chips"><span class="chip">상황 <b>${esc(s.when)}</b></span>${saveBtn(s.id)}</div>
         ${soundBox(s)}
         ${others.length ? `<details class="more">
           <summary>이렇게 말해도 맞아요 ▾</summary>
@@ -431,7 +451,7 @@ function result() {
       ${mode === "voice" && verdict !== "exact" ? `<div class="btn-row"><button class="btn ghost" id="again">다시 말해 볼래요</button><button class="btn ghost" id="fix">맞게 말했어요</button></div>` : ""}
     </div>
   </section>`;
-  bindQuit(); bindSay();
+  bindQuit(); bindSay(); bindSave();
   const play = (btn, r) => { btn.classList.add("playing"); sp.speak(s.en, r).then(() => btn.classList.remove("playing")); };
   on("#pNormal", (e) => play(e.currentTarget, rate));
   on("#pSlow", (e) => play(e.currentTarget, Math.max(0.55, rate - 0.3)));
@@ -459,6 +479,7 @@ function repeat3() {
         <button class="chip-btn" id="pNormal">${I.speaker}듣기</button><button class="chip-btn" id="pSlow">${I.slow}천천히</button></div>
       ${thinkLine(s)}
       ${soundBox(s)}
+      <div style="margin-top:10px">${saveBtn(s.id)}</div>
     </div>
     <div class="dots" id="dots"><i></i><i></i><i></i></div>
     <div class="said" id="said" aria-live="polite">${waveIc()}<span class="placeholder">듣고 나서 마이크를 눌러 따라 해요</span></div>
@@ -468,7 +489,7 @@ function repeat3() {
       <div class="mic-label" id="micLabel">따라 말하기</div>
     </div>
   </section>`;
-  bindQuit(); bindSay();
+  bindQuit(); bindSay(); bindSave();
   on("#pNormal", () => sp.speak(s.en, rate));
   on("#pSlow", () => sp.speak(s.en, Math.max(0.55, rate - 0.3)));
   sp.speak(s.en, rate);
@@ -577,12 +598,12 @@ function todayList() {
             ${tip ? `<div class="small muted" style="margin-top:2px">🗣️ ${esc(tip.sound)}</div>` : ""}
             ${tip?.short ? `<div class="small" style="margin-top:2px">짧게 <b>${esc(tip.short)}</b> <span class="muted">${esc(tip.shortSound)}</span></div>` : ""}
           </div>
-          <div class="play-row" style="margin-top:8px"><button class="chip-btn" data-say="${esc(s.en)}">${I.speaker}듣기</button><button class="chip-btn" data-say="${esc(s.en)}" data-rate="0.65">${I.slow}천천히</button></div>
+          <div class="play-row" style="margin-top:8px"><button class="chip-btn" data-say="${esc(s.en)}">${I.speaker}듣기</button><button class="chip-btn" data-say="${esc(s.en)}" data-rate="0.65">${I.slow}천천히</button>${saveBtn(s.id)}</div>
         </div>`; }).join("")}</div>
       <div class="sticky-bottom"><button class="btn primary lg block" id="practice">🗣️ 이 문장들 다시 말해 보기</button></div>`
       : `<div class="card center" style="display:grid;justify-items:center;gap:8px">${mascot("think", 96)}<b>아직 오늘 공부한 문장이 없어요</b><span class="small muted">오늘의 말하기를 하면 여기 모여요</span></div>`}
     </section>`;
-    on("#back", () => go("home")); bindSay();
+    on("#back", () => go("home")); bindSay(); bindSave();
     $$("[data-c]").forEach(b => on(b, () => { cover = b.dataset.c === "1"; render(); }));
     $$("[data-reveal]").forEach(el => on(el, () => el.classList.remove("covered")));
     on("#practice", () => { session = { queue: ids.slice(), retry: [], index: 0, results: {}, practice: true }; nextSentence(); });
@@ -668,6 +689,7 @@ function listen() {
       <div class="card" style="margin-top:12px">
         <div class="row between"><div class="en">${esc(item.en)}</div><button class="chip-btn mini" id="again1" aria-label="다시 듣기">${I.speaker}</button></div>
         <p class="small" style="margin:4px 0 0">${esc(item.ko)}</p>
+        <div style="margin-top:8px">${saveBtn("L:" + item.id)}</div>
         ${sound ? `<div class="tipbox"><div class="tip-row"><span class="tip-k">빨리 말하면</span><span class="tip-v">${esc(sound)}</span></div></div>` : ""}
         ${item.replies.length ? `<div class="answer-box"><span class="badge">이렇게 대답해요</span>
           ${item.replies.map(r => `<div class="row between" style="margin-top:6px"><b>${esc(r)}</b><button class="chip-btn mini" data-say="${esc(r)}">${I.speaker}</button></div>`).join("")}
@@ -677,7 +699,7 @@ function listen() {
         </div>` : ""}
       </div>
       <div class="sticky-bottom"><button class="btn primary lg block" id="lnext">${lsession.index + 1 < total ? "다음" : "끝"}</button></div>`;
-    bindSay();
+    bindSay(); bindSave();
     on("#again1", play);
     if ($("#rmic")) micControl({ btn: $("#rmic"), label: $("#rlabel"), out: $("#rsaid"), onDone: (text) => {
       const g = grade(text, { en: item.replies[0], alt: item.replies.slice(1) });
@@ -833,7 +855,82 @@ function settings() {
   });
 }
 
-const SCREENS = { pickProfile, home, speak, blocks, result, repeat3, done, todayList, courses, listen, listenDone, drill, notes, settings };
+// ── 보관함 ──────────────────────────────
+let savedTab = "speak";
+function saved() {
+  const all = savedList();
+  const sIds = all.filter(id => !id.startsWith("L:") && getSentence(id));
+  const lIds = all.filter(id => id.startsWith("L:") && L_BY_ID[id.slice(2)]);
+  let cover = false;
+  const render = () => {
+    const ids = savedTab === "speak" ? sIds : lIds;
+    const card = (id) => {
+      if (savedTab === "speak") {
+        const s = getSentence(id), key = keyOf(s), tip = tipOf(s);
+        return `<div class="card tight">
+          <div class="xs muted">${esc(s.when)}</div>
+          <div style="margin-top:4px;font-weight:800">${markPhrase(s.ko, key?.[0])}</div>
+          <div class="en-reveal ${cover ? "covered" : ""}" data-reveal title="눌러서 보기">
+            <div class="en" style="font-size:18px;line-height:27px;margin-top:6px">${markPhrase(s.en, key?.[1])}</div>
+            ${key ? `<div class="small" style="margin-top:2px">💡 ${esc(key[0])} → <b>${esc(key[1])}</b>${s.tip ? ` · <span class="muted">${esc(s.tip)}</span>` : ""}</div>` : ""}
+            ${tip ? `<div class="small muted" style="margin-top:2px">🗣️ ${esc(tip.sound)}</div>` : ""}
+            ${tip?.short ? `<div class="small" style="margin-top:2px">짧게 <b>${esc(tip.short)}</b> <span class="muted">${esc(tip.shortSound)}</span></div>` : ""}
+          </div>
+          <div class="play-row" style="margin-top:8px"><button class="chip-btn" data-say="${esc(s.en)}">${I.speaker}듣기</button><button class="chip-btn" data-say="${esc(s.en)}" data-rate="0.65">${I.slow}천천히</button>${saveBtn(id)}</div>
+        </div>`;
+      }
+      const it = L_BY_ID[id.slice(2)];
+      return `<div class="card tight">
+        <div class="xs muted">🎧 ${esc(L_COURSES.find(c => c.id === it.course).title)}</div>
+        <div class="en-reveal ${cover ? "covered" : ""}" data-reveal title="눌러서 보기">
+          <div class="en" style="font-size:18px;line-height:27px;margin-top:4px">${esc(it.en)}</div>
+          <div class="small" style="margin-top:2px">${esc(it.ko)}</div>
+          <div class="small muted" style="margin-top:2px">🗣️ ${esc(listenSound(it))}</div>
+          ${it.replies.length ? `<div class="small" style="margin-top:2px">↩️ <b>${esc(it.replies[0])}</b> <span class="muted">${esc(it.replyKo)}</span></div>` : ""}
+        </div>
+        <div class="play-row" style="margin-top:8px"><button class="chip-btn" data-say="${esc(it.en)}">${I.speaker}듣기</button><button class="chip-btn" data-say="${esc(it.en)}" data-rate="0.65">${I.slow}천천히</button>${saveBtn(id)}</div>
+      </div>`;
+    };
+    app.innerHTML = `
+    <section class="screen">
+      <div class="topbar"><button class="icon-btn" id="back" aria-label="뒤로">${I.back}</button><h2 class="grow">🔖 보관함</h2><span class="small muted">${sIds.length + lIds.length}개</span></div>
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="${savedTab === "speak"}" data-st="speak">🗣️ 말하기 ${sIds.length}</button>
+        <button role="tab" aria-selected="${savedTab === "listen"}" data-st="listen">🎧 듣기 ${lIds.length}</button>
+      </div>
+      ${ids.length ? `
+      <div class="row between">
+        <span class="small muted">${savedTab === "speak" ? "영어를 가리고 떠올려 봐요" : "글을 가리고 귀로만 들어 봐요"}</span>
+        <div class="seg"><button aria-pressed="${!cover}" data-c="0">다 보기</button><button aria-pressed="${cover}" data-c="1">가리기</button></div>
+      </div>
+      <div class="list">${ids.map(card).join("")}</div>
+      <div class="sticky-bottom">${savedTab === "speak"
+        ? `<button class="btn primary lg block" id="practice">🗣️ 담은 문장 다시 말해 보기</button>`
+        : `<button class="btn primary lg block" id="playAll">🎧 담은 문장 차례로 듣기</button>`}</div>`
+      : `<div class="card center" style="display:grid;justify-items:center;gap:8px">${mascot("think", 96)}<b>아직 담은 ${savedTab === "speak" ? "말하기" : "듣기"} 문장이 없어요</b><span class="small muted">${savedTab === "speak" ? "채점 화면이나 오늘 한 문장에서" : "듣기 연습에서 답을 본 뒤"} «🔖 보관함에 담기»를 눌러요</span></div>`}
+    </section>`;
+    on("#back", () => go("home")); bindSay();
+    $$("[data-save]").forEach(b => on(b, (e) => { e.stopPropagation(); toggleSave(b.dataset.save); toast("보관함에서 뺐어요", 1400); go("saved"); }));
+    $$("[data-st]").forEach(b => on(b, () => { savedTab = b.dataset.st; render(); }));
+    $$("[data-c]").forEach(b => on(b, () => { cover = b.dataset.c === "1"; render(); }));
+    $$("[data-reveal]").forEach(el => on(el, () => el.classList.remove("covered")));
+    on("#practice", () => { session = { queue: sIds.slice(), retry: [], index: 0, results: {}, practice: true, from: "saved" }; nextSentence(); });
+    on("#playAll", async (e) => {
+      const btn = e.currentTarget;
+      if (btn.dataset.playing) { btn.dataset.playing = ""; sp.stopSpeaking(); btn.textContent = "🎧 담은 문장 차례로 듣기"; return; }
+      btn.dataset.playing = "1"; btn.textContent = "⏹ 멈추기";
+      for (const id of lIds) {
+        if (!btn.dataset.playing || !btn.isConnected) break;
+        await sp.speak(L_BY_ID[id.slice(2)].en, 0.9);
+        await new Promise(r => setTimeout(r, 1200));
+      }
+      if (btn.isConnected) { btn.dataset.playing = ""; btn.textContent = "🎧 담은 문장 차례로 듣기"; }
+    });
+  };
+  render();
+}
+
+const SCREENS = { saved, pickProfile, home, speak, blocks, result, repeat3, done, todayList, courses, listen, listenDone, drill, notes, settings };
 
 // ── 시작 ────────────────────────────────
 store.load();
