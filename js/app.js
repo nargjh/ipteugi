@@ -1,17 +1,17 @@
-import { COURSES } from "../data/sentences.js?v=9";
-import { KEYS } from "../data/keys.js?v=9";
-import { TIPS } from "../data/tips.js?v=9";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=9";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=9";
-import * as store from "./store.js?v=9";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=9";
-import { grade, gradeBest, chips, normalize } from "./grade.js?v=9";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=9";
-import { mascot, coach } from "./mascot.js?v=9";
-import { DIALOGS } from "../data/dialogs.js?v=9";
-import * as sp from "./speech.js?v=9";
+import { COURSES } from "../data/sentences.js?v=10";
+import { KEYS } from "../data/keys.js?v=10";
+import { TIPS } from "../data/tips.js?v=10";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=10";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=10";
+import * as store from "./store.js?v=10";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=10";
+import { grade, gradeBest, chips, normalize } from "./grade.js?v=10";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=10";
+import { mascot, coach } from "./mascot.js?v=10";
+import { DIALOGS } from "../data/dialogs.js?v=10";
+import * as sp from "./speech.js?v=10";
 
-export const VERSION = 9;
+export const VERSION = 10;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
@@ -835,7 +835,7 @@ function settings() {
     </div>
     <div class="card tight small muted">말 받아쓰기 ${sp.canListen ? "됨" : "안 됨"} · 소리 읽기 ${sp.canSpeak ? "됨" : "안 됨"}<br>이 폰의 영어 목소리: ${esc(accents)}</div>
     <button class="btn danger" id="reset">${esc(p.name)} 기록 처음부터</button>
-    <p class="xs muted center" style="margin:0">판 ${VERSION} · 캐릭터 그림: 지안</p>
+    <p class="xs muted center" style="margin:0">판 ${VERSION}</p>
   </section>`;
   on("#back", () => go("home"));
   $$("#goal button").forEach(b => on(b, () => { p.dailyGoal = +b.dataset.n; store.save(); go("settings"); }));
