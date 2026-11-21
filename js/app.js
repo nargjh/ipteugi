@@ -1,16 +1,17 @@
-import { COURSES } from "../data/sentences.js?v=8";
-import { KEYS } from "../data/keys.js?v=8";
-import { TIPS } from "../data/tips.js?v=8";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=8";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=8";
-import * as store from "./store.js?v=8";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=8";
-import { grade, gradeBest, chips, normalize } from "./grade.js?v=8";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=8";
-import { mascot, coach } from "./mascot.js?v=8";
-import * as sp from "./speech.js?v=8";
+import { COURSES } from "../data/sentences.js?v=9";
+import { KEYS } from "../data/keys.js?v=9";
+import { TIPS } from "../data/tips.js?v=9";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=9";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=9";
+import * as store from "./store.js?v=9";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=9";
+import { grade, gradeBest, chips, normalize } from "./grade.js?v=9";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=9";
+import { mascot, coach } from "./mascot.js?v=9";
+import { DIALOGS } from "../data/dialogs.js?v=9";
+import * as sp from "./speech.js?v=9";
 
-export const VERSION = 8;
+export const VERSION = 9;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
@@ -222,8 +223,9 @@ function home() {
     <div class="tabs" role="tablist">
       <button role="tab" aria-selected="${homeTab === "speak"}" data-tab="speak">🗣️ 말하기</button>
       <button role="tab" aria-selected="${homeTab === "listen"}" data-tab="listen">🎧 듣기</button>
+      <button role="tab" aria-selected="${homeTab === "talk"}" data-tab="talk">🎭 대화</button>
     </div>
-    ${homeTab === "speak" ? speakTab : listenTab}
+    ${homeTab === "speak" ? speakTab : homeTab === "listen" ? listenTab : talkTab()}
     <div class="card tight">
       <div class="row between" style="margin-bottom:10px"><b>이번 주</b><span class="xs muted">하루 말한 문장</span></div>
       ${weekHtml()}
@@ -244,6 +246,7 @@ function home() {
   on("#todayList", () => go("todayList")); on("#savedBtn", () => go("saved")); on("#drill", () => go("drill")); on("#notes", () => go("notes"));
   on("#lstart", () => startListen());
   $$("[data-lc]").forEach(b => on(b, () => { listenState().current = b.dataset.lc; store.save(); startListen(); }));
+  $$("[data-dlg]").forEach(b => on(b, () => go("roleplay", b.dataset.dlg)));
 }
 
 function weekHtml() {
@@ -857,6 +860,139 @@ function settings() {
   });
 }
 
+// ── 상황 대화 롤플레이 ──────────────────
+const dlgState = () => { const pr = store.progress(); return pr.dialogs || (pr.dialogs = {}); };
+function talkTab() {
+  const st = dlgState();
+  return `
+    <div class="card tight" style="display:flex;gap:12px;align-items:center">
+      ${mascot("listen", 60)}
+      <div class="grow"><b>직원과 진짜처럼 주고받기</b><p class="small muted" style="margin:2px 0 0">상대가 먼저 말하면 귀로 듣고, 한국어 안내를 보고 영어로 대답해요. 대화가 끝까지 이어져요.</p></div>
+    </div>
+    <div class="list">${DIALOGS.map(d => { const r = st[d.id]; return `
+      <button class="course ${r ? "done" : ""}" data-dlg="${d.id}">
+        <span class="num">${r ? "✓" : esc(d.place.split(" ")[0])}</span>
+        <span class="grow"><span class="t">${esc(d.title)}</span><span class="s">${esc(d.place)} · 주고받기 ${d.turns.filter(t => t.you).length}번${r ? ` · ${r.done}번 해 봄 · 최고 ${"⭐".repeat(r.best || 0)}` : ""}</span></span>
+        <span class="small muted">시작 ›</span>
+      </button>`; }).join("")}</div>`;
+}
+
+function roleplay(id) {
+  const d = DIALOGS.find(x => x.id === id);
+  const rate = store.profile().rate;
+  let i = 0, fails = 0, hint = 0, hideText = true, finished = false;
+  const log = []; // {who:"staff"|"me", t, said, stars}
+  const youTurns = d.turns.filter(t => t.you).length;
+  let earned = 0;
+
+  const staffBubble = (t, k, open) => `
+    <div class="bub staff">
+      <span class="ava">${mascot("listen", 34)}</span>
+      <div class="bub-in">
+        <div class="bub-en ${open ? "" : "covered"}" data-open="${k}">${esc(t.staff)}</div>
+        ${open ? `<div class="bub-ko">${esc(t.ko)}</div><div class="bub-sound">🗣️ ${esc(t.sound)}</div>` : `<div class="bub-ko muted">눌러서 글 보기</div>`}
+        <div class="play-row" style="margin-top:6px"><button class="chip-btn mini" data-say="${esc(t.staff)}">${I.speaker}다시</button><button class="chip-btn mini" data-say="${esc(t.staff)}" data-rate="0.65">${I.slow}천천히</button></div>
+      </div>
+    </div>`;
+  const meBubble = (x) => `<div class="bub me"><div class="bub-in">${x.said ? esc(x.said) : `<span style="opacity:.8">(건너뜀)</span>`}<div class="bub-ko">${x.stars ? stars(x.stars) : ""}</div></div></div>`;
+
+  const render = () => {
+    const t = d.turns[i];
+    const opened = new Set(log.filter(x => x.open).map(x => x.k));
+    app.innerHTML = `
+    <section class="screen">
+      <div class="topbar">
+        <button class="icon-btn" id="quit" aria-label="그만하기">${I.close}</button>
+        <div class="grow" style="padding:0 6px"><div class="small" style="font-weight:800">${esc(d.place.split(" ")[0])} ${esc(d.title)}</div><div class="bar" style="margin-top:4px"><i style="width:${(Math.min(i, d.turns.length) / d.turns.length) * 100}%"></i></div></div>
+        <button class="chip-btn mini" id="textToggle">${hideText ? "글 가림" : "글 보임"}</button>
+      </div>
+      <div class="chat" id="chat">
+        ${log.map(x => x.who === "staff" ? staffBubble(x.t, x.k, !hideText || x.open) : meBubble(x)).join("")}
+      </div>
+      <div class="grow"></div>
+      ${finished ? `
+        <div class="card center" style="display:grid;justify-items:center;gap:8px">
+          ${mascot("cheer", 100)}
+          <h2>대화 성공! 🎉</h2>
+          <p class="small muted" style="margin:0">${youTurns}번 주고받았어요 · 별 ${earned}/${youTurns * 3}</p>
+          <div class="btn-col" style="width:100%">
+            <button class="btn primary block" id="again">한 번 더 (이번엔 글 가리고)</button>
+            <button class="btn secondary block" id="replay">🎧 대화 전체 다시 듣기</button>
+            <button class="btn ghost block" id="back">다른 대화 고르기</button>
+          </div>
+        </div>` : t && t.you ? `
+        <div class="dock">
+          <div class="myturn">
+            <div class="xs muted">내 차례</div>
+            <b>${esc(t.you)}</b>
+            ${hint >= 1 && t.key ? `<div class="keyhint" style="margin-top:8px">💡 <b>'${esc(t.key[0])}'</b>는 영어로 <mark>${esc(t.key[1])}</mark></div>` : ""}
+            ${hint >= 2 ? `<div class="keyhint" style="margin-top:6px">본보기: <b>${esc(t.answers[0])}</b> <button class="chip-btn mini" data-say="${esc(t.answers[0])}">${I.speaker}</button></div>` : ""}
+          </div>
+          <div class="said" id="said" aria-live="polite">${waveIc()}<span class="placeholder">${fails ? "조금 달랐어요. 한 번 더 말해 봐요!" : "듣고 나서 마이크를 눌러 대답해요"}</span></div>
+          <div class="dock-row">
+            <button class="side-btn" id="hintBtn">${I.bulb}${hint === 0 ? "낱말 힌트" : hint === 1 ? "본보기 보기" : "힌트 다 봄"}</button>
+            <button class="mic" id="mic" aria-label="대답하기" ${sp.canListen && !sp.inAppBrowser ? "" : "disabled"}>${I.mic}</button>
+            <button class="side-btn" id="skip">건너뛰기</button>
+          </div>
+          <div class="mic-label" id="micLabel">대답하기</div>
+        </div>` : ""}
+    </section>`;
+    on("#quit", () => { homeTab = "talk"; go("home"); });
+    bindSay();
+    on("#textToggle", () => { hideText = !hideText; render(); });
+    $$("[data-open]").forEach(el => on(el, () => { const x = log.find(y => y.who === "staff" && y.k === +el.dataset.open); if (x) { x.open = true; render(); } }));
+    const chat = $("#chat"); chat?.lastElementChild?.scrollIntoView({ block: "nearest" });
+    if (finished) {
+      setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }), 50);
+      on("#again", () => go("roleplay", id));
+      on("#back", () => { homeTab = "talk"; go("home"); });
+      on("#replay", async (e) => {
+        const btn = e.currentTarget; btn.disabled = true;
+        for (const t2 of d.turns) { if (!btn.isConnected) break; await sp.speak(t2.staff, 0.9); await new Promise(r => setTimeout(r, 500)); if (t2.answers && btn.isConnected) { await sp.speak(t2.answers[0], 0.9); await new Promise(r => setTimeout(r, 700)); } }
+        if (btn.isConnected) btn.disabled = false;
+      });
+      return;
+    }
+    if (!t?.you) return;
+    on("#hintBtn", () => { if (hint < 2) { hint++; render(); } });
+    on("#skip", () => { log.push({ who: "me", said: "", stars: 0 }); reveal(); next(); });
+    micControl({ btn: $("#mic"), label: $("#micLabel"), out: $("#said"), onDone: (text, alts) => {
+      const g = gradeBest(alts, { en: t.answers[0], alt: t.answers.slice(1) });
+      if (g.res.verdict === "wrong") {
+        fails++;
+        if (fails >= 2 && hint < 2) hint = 2;
+        render();
+        $("#said").innerHTML = `${waveIc()}<span class="placeholder">«${esc(g.said || text)}» — ${fails >= 2 ? "본보기를 듣고 따라 해 봐요" : "조금 달라요. 한 번 더!"}</span>`;
+        return;
+      }
+      const st = g.res.verdict === "exact" ? (hint >= 2 ? 2 : hint >= 1 || fails ? 2 : 3) : (hint >= 2 ? 1 : 2);
+      earned += st;
+      log.push({ who: "me", said: g.said || text, stars: st });
+      reveal(); next();
+    } });
+  };
+  // 지금 상대 말은 대답한 뒤 글로 보여 줌
+  const reveal = () => { for (let k = log.length - 1; k >= 0; k--) if (log[k].who === "staff") { log[k].open = true; break; } };
+  const next = () => {
+    i++; fails = 0; hint = 0;
+    if (i >= d.turns.length) return done();
+    const t = d.turns[i];
+    log.push({ who: "staff", t, k: i });
+    render(); sp.speak(t.staff, rate);
+    if (!t.you) { reveal(); setTimeout(() => { if ($("#chat")) done(); }, 400); }
+  };
+  const done = () => {
+    finished = true;
+    const st = dlgState(), r = st[id] || { done: 0, best: 0 };
+    r.done++; const s3 = youTurns ? Math.round(earned / youTurns) : 3; r.best = Math.max(r.best || 0, s3); r.lastAt = store.today();
+    st[id] = r;
+    const dl = store.dayLog(); dl.xp += 10 + earned; dl.talked = (dl.talked || 0) + 1; store.save();
+    render();
+  };
+  log.push({ who: "staff", t: d.turns[0], k: 0 });
+  render(); sp.speak(d.turns[0].staff, rate);
+}
+
 // ── 보관함 ──────────────────────────────
 let savedTab = "speak";
 function saved() {
@@ -932,7 +1068,7 @@ function saved() {
   render();
 }
 
-const SCREENS = { saved, pickProfile, home, speak, blocks, result, repeat3, done, todayList, courses, listen, listenDone, drill, notes, settings };
+const SCREENS = { roleplay, saved, pickProfile, home, speak, blocks, result, repeat3, done, todayList, courses, listen, listenDone, drill, notes, settings };
 
 // ── 시작 ────────────────────────────────
 store.load();

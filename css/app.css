@@ -272,3 +272,20 @@ details.more dl { margin: 12px 0 0; display: grid; gap: 4px; } details.more dt {
 .save-btn { min-height: 34px; padding: 0 12px; border-radius: var(--r-pill); border: 1px dashed var(--accent); background: transparent; color: var(--accent); font-size: 13px; font-weight: 800; cursor: pointer; }
 .save-btn.on { border-style: solid; background: var(--accent); color: var(--on-accent); }
 .tile.wide { grid-column: 1 / -1; min-height: 72px; background: linear-gradient(135deg, var(--accent-soft), var(--surface)); }
+
+/* 상황 대화 */
+.tabs:has(button:nth-child(3)) { grid-template-columns: 1fr 1fr 1fr; }
+.chat { display: flex; flex-direction: column; gap: 12px; }
+.bub { display: flex; gap: 8px; align-items: flex-end; max-width: 92%; animation: in var(--base) var(--ease); }
+.bub.staff { align-self: flex-start; }
+.bub.me { align-self: flex-end; flex-direction: row-reverse; }
+.bub .ava { flex: none; width: 34px; }
+.bub-in { background: var(--surface); border: 1px solid var(--border); border-radius: 18px 18px 18px 6px; padding: 10px 14px; box-shadow: var(--shadow-card); font-size: 17px; line-height: 24px; font-weight: 700; }
+.bub.me .bub-in { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--on-accent); border: 0; border-radius: 18px 18px 6px 18px; }
+.bub.me .stars svg { color: rgba(255,255,255,.35); } .bub.me .stars svg.on { color: #ffd34d; }
+.bub-en.covered { filter: blur(6px); cursor: pointer; user-select: none; }
+.bub-ko { font-size: 13px; line-height: 18px; font-weight: 500; margin-top: 4px; }
+.bub-sound { font-size: 13px; line-height: 18px; color: var(--accent); margin-top: 2px; font-weight: 600; }
+.myturn { width: 100%; padding: 10px 12px; border-radius: var(--r-md); background: var(--accent-soft); text-align: left; }
+.myturn b { font-size: 17px; line-height: 24px; }
+.dock .said { width: 100%; min-height: 52px; }
