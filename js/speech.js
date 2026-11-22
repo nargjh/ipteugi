@@ -1,5 +1,5 @@
 // 말 받아쓰기(Web Speech) · 녹음(MediaRecorder) · 소리(Amara 녹음 → 없으면 speechSynthesis)
-import { AUDIO } from "../data/audio.js?v=12";
+import { AUDIO } from "../data/audio.js?v=13";
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const canListen = !!SR;
 export const canSpeak = "speechSynthesis" in window;
@@ -13,6 +13,25 @@ export const canRecordWhileListening = !isMobile;
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
 let rec = null;
+
+// 안드로이드 크롬은 계속 듣기에서 앞서 받아쓴 말을 다음 조각에 또 담아 보냄 → 겹치는 부분은 한 번만
+const low = (t) => t.toLowerCase().replace(/[^a-z0-9' ]/g, "").replace(/\s+/g, " ").trim();
+export function mergeSegs(segs) {
+  let out = "";
+  for (const raw of segs) {
+    const t = (raw || "").trim(); if (!t) continue;
+    const a = low(out), b = low(t);
+    if (!a) { out = t; continue; }
+    if (b.startsWith(a)) { out = t; continue; }          // 새 조각이 앞의 것을 다 품음
+    if (a.endsWith(b) || a.includes(b)) continue;          // 이미 들어 있음
+    // 앞 끝과 새 앞머리가 겹치면 겹친 낱말만큼 빼고 붙임
+    const aw = a.split(" "), bw = b.split(" "), tw = t.split(/\s+/);
+    let ov = 0;
+    for (let k = Math.min(aw.length, bw.length); k > 0; k--) { if (aw.slice(-k).join(" ") === bw.slice(0, k).join(" ")) { ov = k; break; } }
+    out = (out + " " + tw.slice(ov).join(" ")).trim();
+  }
+  return out;
+}
 export let lastError = "";
 let mediaRec = null, chunks = [], lastAudioUrl = null, stream = null;
 
@@ -45,21 +64,17 @@ export function listen({ onText, onEnd, onError, onState, record = false }) {
 
   rec.onresult = (e) => {
     lastHeard = Date.now(); heardAny = true;
-    interim = "";
-    let fin = "";
-    for (let i = 0; i < e.results.length; i++) {
-      const r = e.results[i];
-      if (r.isFinal) fin += r[0].transcript + " ";
-      else interim += r[0].transcript + " ";
-    }
-    finalText = fin.trim();
-    // 끝난 조각마다 후보를 바꿔 끼운 문장들
     const finals = [...e.results].filter(r => r.isFinal);
     const top = finals.map(r => r[0].transcript.trim());
-    const alts = new Set([top.join(" ")]);
-    finals.forEach((r, i) => { for (let k = 1; k < r.length; k++) { const c = top.slice(); c[i] = r[k].transcript.trim(); alts.add(c.join(" ")); } });
+    finalText = mergeSegs(top);
+    interim = [...e.results].filter(r => !r.isFinal).map(r => r[0].transcript.trim()).join(" ");
+    // 끝난 조각마다 후보를 바꿔 끼운 문장들 (겹침 없이 합침)
+    const alts = new Set([finalText]);
+    finals.forEach((r, i) => { for (let k = 1; k < r.length; k++) { const c = top.slice(); c[i] = r[k].transcript.trim(); alts.add(mergeSegs(c)); } });
     finalAlts = [...alts].filter(Boolean);
-    onText?.(finalText, interim.trim());
+    // 보이는 글: 받아쓴 것 + 아직 듣는 중인 것(겹치면 한 번만)
+    const shown = mergeSegs([finalText, interim].filter(Boolean));
+    onText?.(finalText, shown.slice(finalText.length).trim());
   };
   rec.onstart = () => onState?.("start");
   rec.onaudiostart = () => onState?.("audio");
@@ -74,10 +89,10 @@ export function listen({ onText, onEnd, onError, onState, record = false }) {
     if (ended) return;
     ended = true;
     stopRecording();
-    const text = (finalText + " " + (stoppedByUser || !finalText ? interim : "")).trim();
+    const text = (stoppedByUser || !finalText) ? mergeSegs([finalText, interim].filter(Boolean)) : finalText;
     const alts = finalAlts.length ? [...finalAlts] : [];
     if (text && !alts.includes(text)) alts.unshift(text);
-    if (!finalText && interim) alts.push(interim.trim());
+    if (!finalText && interim) alts.push(mergeSegs([interim]));
     onEnd?.(text, stoppedByUser ? "user" : "auto", alts);
     rec = null;
   };
