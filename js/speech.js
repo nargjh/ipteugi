@@ -1,5 +1,5 @@
 // 말 받아쓰기(Web Speech) · 녹음(MediaRecorder) · 소리(Amara 녹음 → 없으면 speechSynthesis)
-import { AUDIO } from "../data/audio.js?v=14";
+import { AUDIO } from "../data/audio.js?v=15";
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 export const canListen = !!SR;
 export const canSpeak = "speechSynthesis" in window;

@@ -1,6 +1,6 @@
 // 복습: 틀림 → 오늘 한 번 더 + 내일 · 아슬 → 간격 늘려 다시(최대 60일) · 정확 → 졸업
-import { COURSES, BY_ID } from "../data/sentences.js?v=14";
-import { progress, profile, today, addDays, dayLog, save } from "./store.js?v=14";
+import { COURSES, BY_ID } from "../data/sentences.js?v=15";
+import { progress, profile, today, addDays, dayLog, save } from "./store.js?v=15";
 
 const STEPS = [1, 3, 7, 14, 30, 60];
 
