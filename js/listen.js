@@ -1,6 +1,6 @@
 // 듣기 연습 기록: 못 알아들은 것은 내일, 알아들은 것은 날을 두고 다시
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=13";
-import { progress, today, addDays, dayLog, save } from "./store.js?v=13";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=14";
+import { progress, today, addDays, dayLog, save } from "./store.js?v=14";
 
 const STEPS = [1, 3, 7, 14, 30];
 

@@ -1,17 +1,17 @@
-import { COURSES } from "../data/sentences.js?v=13";
-import { KEYS } from "../data/keys.js?v=13";
-import { TIPS } from "../data/tips.js?v=13";
-import { L_COURSES, L_BY_ID } from "../data/listening.js?v=13";
-import { L_SOUNDS } from "../data/listen-sounds.js?v=13";
-import * as store from "./store.js?v=13";
-import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=13";
-import { grade, gradeBest, chips, normalize } from "./grade.js?v=13";
-import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=13";
-import { mascot, coach } from "./mascot.js?v=13";
-import { DIALOGS } from "../data/dialogs.js?v=13";
-import * as sp from "./speech.js?v=13";
+import { COURSES } from "../data/sentences.js?v=14";
+import { KEYS } from "../data/keys.js?v=14";
+import { TIPS } from "../data/tips.js?v=14";
+import { L_COURSES, L_BY_ID } from "../data/listening.js?v=14";
+import { L_SOUNDS } from "../data/listen-sounds.js?v=14";
+import * as store from "./store.js?v=14";
+import { buildSession, buildExtra, record, dueReviews, courseStats, getSentence, week } from "./srs.js?v=14";
+import { grade, gradeBest, chips, normalize } from "./grade.js?v=14";
+import { buildListenSession, recordListen, listenCourseStats, listenState } from "./listen.js?v=14";
+import { mascot, coach } from "./mascot.js?v=14";
+import { DIALOGS } from "../data/dialogs.js?v=14";
+import * as sp from "./speech.js?v=14";
 
-export const VERSION = 13;
+export const VERSION = 14;
 const app = document.getElementById("app");
 
 // ── 작은 도구 ───────────────────────────
@@ -402,9 +402,10 @@ function coachFor() {
 }
 
 // 연음·짧게 상자
-function soundBox(s) {
+function soundBox(s, mainLabel = false) {
   const t = tipOf(s); if (!t) return "";
   return `<div class="tipbox">
+    ${mainLabel ? `<div class="xs muted">아래 소리는 대표 문장 «${esc(s.en)}» 기준이에요</div>` : ""}
     <div class="tip-row"><span class="tip-k">빨리 말하면</span><span class="tip-v">${esc(t.sound)}</span>
       <button class="chip-btn mini" data-say="${esc(s.en)}" data-rate="1.0" aria-label="빠르게 듣기">${I.speaker}</button></div>
     ${t.short ? `<div class="tip-row"><span class="tip-k">짧게는</span><span class="tip-v"><b>${esc(t.short)}</b><br><span class="muted">${esc(t.shortSound)}</span></span>
@@ -435,18 +436,18 @@ function result() {
       ${showMine ? `<div class="box-label"><span>${mode === "blocks" ? "내가 맞춘 문장" : "내 문장"}</span><span class="row">${stars(verdictStars(verdict, mode), true)}${sp.hasMyVoice() ? `<button class="chip-btn mini" id="pMine">${I.mic}내 목소리</button>` : ""}</span></div>
       <div class="mine">${said ? res.saidMarks.map(m => `<span class="${m.ok ? "" : "bad"}">${esc(m.w)}</span>`).join(" ") : `<span class="muted">(없음)</span>`}</div>` : `<div class="box-label"><span>정답을 보고 익혀요</span>${stars(0)}</div>`}
       <div class="answer-box">
-        <span class="badge">✓ 정답${res.isMain ? "" : " · 이렇게도 말해요"}</span>
+        <span class="badge">✓ 정답${res.isMain ? "" : " · 내가 말한 표현"}</span>
         <div class="play-row" style="justify-content:flex-end;margin-bottom:6px">
           <button class="chip-btn" id="pNormal">${I.speaker}듣기</button><button class="chip-btn" id="pSlow">${I.slow}천천히</button></div>
         <div class="en">${enHtml}</div>
-        ${!res.isMain ? `<p class="small muted" style="margin:4px 0 0">대표 정답: ${esc(s.en)}</p>` : ""}
+        ${!res.isMain ? `<div class="mainline"><span class="xs muted">대표 문장</span><div class="row between"><b>${markPhrase(s.en, key?.[1])}</b><button class="chip-btn mini" data-say="${esc(s.en)}" aria-label="대표 문장 듣기">${I.speaker}</button></div></div>` : ""}
         <p class="small" style="margin:6px 0 0">${markPhrase(s.ko, key?.[0])}</p>
         ${thinkLine(s)}
         <div class="chips"><span class="chip">상황 <b>${esc(s.when)}</b></span>${saveBtn(s.id)}</div>
-        ${soundBox(s)}
+        ${soundBox(s, !res.isMain)}
         ${others.length ? `<details class="more">
           <summary>이렇게 말해도 맞아요 ▾</summary>
-          <dl><dd>${others.map(esc).join("<br>")}</dd></dl>
+          <dl><dd>${others.map(o => `<div class="row between" style="margin:4px 0"><span>${esc(o)}</span><button class="chip-btn mini" data-say="${esc(o)}">${I.speaker}</button></div>`).join("")}</dd></dl>
         </details>` : ""}
       </div>
     </div>
@@ -457,11 +458,12 @@ function result() {
     </div>
   </section>`;
   bindQuit(); bindSay(); bindSave();
-  const play = (btn, r) => { btn.classList.add("playing"); sp.speak(s.en, r).then(() => btn.classList.remove("playing")); };
+  const heard = res.target || s.en; // 내가 맞춘 정답(다른 표현이면 그 문장)을 들려줌
+  const play = (btn, r) => { btn.classList.add("playing"); sp.speak(heard, r).then(() => btn.classList.remove("playing")); };
   on("#pNormal", (e) => play(e.currentTarget, rate));
   on("#pSlow", (e) => play(e.currentTarget, Math.max(0.55, rate - 0.3)));
   on("#pMine", () => sp.playMyVoice());
-  if (verdict !== "exact") sp.speak(s.en, rate);
+  if (verdict !== "exact") sp.speak(heard, rate);
   on("#next", () => (verdict === "wrong" && sp.canListen) ? go("repeat3") : advance());
   on("#fix", () => { commit("close"); current.res = { ...res, verdict: "close" }; toast("받아쓰기 탓으로 보고 별 2개로 고쳤어요."); go("result"); });
   on("#again", () => go("speak"));
