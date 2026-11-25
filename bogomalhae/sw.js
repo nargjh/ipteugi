@@ -1,5 +1,5 @@
 /* 보고말해 앱 — 화면 파일은 먼저 새로 받아 보고, 안 되면(인터넷·서버 끊김) 저장해 둔 것으로 */
-const C = "bgm-1795612834";
+const C = "bgm-1795613156";
 self.addEventListener("install", (e) => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (e) => {

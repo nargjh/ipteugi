@@ -349,3 +349,5 @@ input{font:inherit}
 .msgb .kobtn{margin-left:4px}
 .chtime{margin-left:auto;font-size:12px;font-weight:800;color:var(--sub);white-space:nowrap}
 .chtime.end{color:#e0531f}
+/* 듣는 중 마이크 = ✓ 다 말했어요 */
+.chbar #chMic.rec{color:#fff;font-weight:900}

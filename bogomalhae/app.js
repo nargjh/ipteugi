@@ -436,7 +436,9 @@ function addItem(o) {
 /* ================= S07 쉐도잉 ================= */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null;
-function stopRec() { if (rec) { try { rec.abort(); } catch {} rec = null; } $(".mic")?.classList.remove("rec"); }
+function stopRec() { if (rec) { try { rec.abort(); } catch {} rec = null; } $(".mic")?.classList.remove("rec"); micUI(false); }
+/* 대화 마이크: 듣는 동안은 «✓ 다 말했어요» 버튼이 됨 → 누르면 바로 튜터에게 */
+function micUI(on) { const b = document.getElementById("chMic"); if (!b) return; b.classList.toggle("rec", on); b.textContent = on ? "✓" : "🎙"; b.title = on ? "다 말했어요 (보내기)" : "말하기"; }
 const toks = (s) => s.toLowerCase().replace(/[’]/g, "'").replace(/[^a-z0-9' ]/g, " ").split(/\s+/).filter(Boolean);
 function scoreSpeech(target, heard) {
   const T = toks(target), H = toks(heard);
@@ -1079,9 +1081,9 @@ async function userSays(text) {
 /* 손 안 대는 듣기: 튜터 말이 끝나면 자동으로 듣고, 말이 멈추면 보냄 */
 function startListen() {
   if (!SR || rec || !chat) return;
-  const ok = listen((heard) => { $("#chMic").classList.remove("rec"); status(""); if (heard) userSays(heard); else { status("🎙 못 들었어요 — 버튼을 누르고 다시 말해요"); } },
+  const ok = listen((heard) => { micUI(false); status(""); if (heard) userSays(heard); else { status("🎙 못 들었어요 — 버튼을 누르고 다시 말해요"); } },
     (p) => { $("#chIn").value = p; callCap([`<div class="cc u">${esc(p)}…</div>`]); });
-  if (ok) { $("#chMic").classList.add("rec"); status("🎙 듣고 있어요 — 말하세요"); }
+  if (ok) { micUI(true); status("🎙 듣고 있어요 — 다 말했으면 ✓ 누르기"); }
 }
 function endChat() {
   stopRec(); status("");
@@ -1134,6 +1136,12 @@ function chatClock() {
   draw(); clockT = setInterval(draw, 1000);
 }
 $("#chView").onclick = () => { const call = $("#chat").classList.toggle("call"); $("#chView").textContent = call ? "💬 채팅" : "📞 통화"; };
+/* 튜터 마지막 말 다시 듣기 */
+$("#chReplay").onclick = () => {
+  const last = [...(chat?.hist || [])].reverse().find((m) => m.who === "t");
+  if (!last) return toast("튜터 말을 먼저 들어 봐요");
+  stopRec(); tutorSay(last.text, () => { if (chat?.hands && cur === "chat" && !chat.busy) startListen(); });
+};
 $("#chMic").onclick = () => {
   if (rec) { rec.stop(); return; }
   stopTTS();

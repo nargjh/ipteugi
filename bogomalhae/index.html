@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="보고말해">
 <title>보고말해 — 영상으로 영어</title>
-<link rel="stylesheet" href="style.css?v=112">
+<link rel="stylesheet" href="style.css?v=113">
 </head>
 <body>
 <div id="app">
@@ -137,6 +137,7 @@
     <div class="chbar">
       <button id="chCam" title="내 카메라">📷</button>
       <button id="chHint" title="힌트">💡</button>
+      <button id="chReplay" title="튜터 말 다시 듣기">🔁</button>
       <input id="chIn" placeholder="말하거나 써요 (한국어도 OK)" autocomplete="off">
       <button id="chMic" class="bigmic" title="말하기">🎙</button>
       <button id="chSend" class="send" title="글로 보내기">보내기</button>
@@ -175,7 +176,7 @@
 <script src="static.js?v=4"></script>
 <script src="talkpic.js?v=15"></script>
 <script type="module" src="vrm.js?v=9"></script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
 </body>
 </html>
