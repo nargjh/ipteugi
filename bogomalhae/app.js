@@ -475,7 +475,7 @@ function listen(onDone, onPart) {
   const timer = setInterval(() => {
     if (ended) return clearInterval(timer);
     const quiet = Date.now() - lastHeard;
-    if ((heardAny && quiet > 2500) || (!heardAny && quiet > 9000)) { clearInterval(timer); try { me.stop(); } catch {} }
+    if ((heardAny && quiet > 1500) || (!heardAny && quiet > 9000)) { clearInterval(timer); try { me.stop(); } catch {} }
   }, 300);
   me.onresult = (ev) => {
     lastHeard = Date.now(); heardAny = true;
@@ -964,7 +964,7 @@ function diffWords(a, b) {
 function addMsg(who, text, ko) {
   const el = document.createElement("div");
   el.className = `msgb ${who}`;
-  el.innerHTML = who === "t" ? `<button class="say">🔊</button>${esc(text)}${ko ? `<div class="ko">${esc(ko)}</div>` : ""}` : esc(text);
+  el.innerHTML = who === "t" ? `<button class="say">🔊</button>${esc(text)}${ko ? `<button class="kobtn">🇰🇷 무슨 뜻?</button><div class="ko">${esc(ko)}</div>` : ""}` : esc(text);
   if (who === "t") $(".say", el).onclick = () => tutorSay(text);
   $("#chLog").appendChild(el); el.scrollIntoView({ block: "end", behavior: "smooth" });
   return el;
@@ -993,6 +993,7 @@ async function openChat(id) {
   const sc = SCN.find((s) => s.id === id) || SCN[0];
   stopRec(); stopTTS();
   chat = { sc, hist: [], mode: aiState ? "script" : "ai", step: 0, hint: null, saved: [], fixes: 0, said: 0, busy: false, hands: !!SR, started: Date.now() };
+  $("#chat").classList.toggle("noko", localStorage.getItem("bgm2_ko") !== "1"); $("#chKo").classList.toggle("on", localStorage.getItem("bgm2_ko") === "1"); chatClock();
   const t = tutor();
   $("#chTitle").textContent = `${t.name} ${t.flag} · ${sc.title}`;
   $("#chMission").className = "mission"; $("#chMission").textContent = `🎯 미션: ${sc.mission}`;
@@ -1013,7 +1014,7 @@ async function teacherTurn(lastUser) {
     chat.busy = true; status("🤔 생각 중…");
     try {
       r = await (await fetch("/api/teacher", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tutor: tutor().name, role: chat.sc.role, mission: chat.sc.mission, history: chat.hist.map(({ who, text }) => ({ who, text })) }) })).json();
+        body: JSON.stringify({ tutor: tutor().name, role: chat.sc.role, mission: chat.sc.mission, history: chat.hist.map(({ who, text }) => ({ who, text })), wrap: Date.now() - chat.started >= CHAT_MS }) })).json();
     } catch { r = { error: "서버에 연결이 안 돼요" }; }
     chat.busy = false; status("");
     if (r.error) {
@@ -1024,7 +1025,7 @@ async function teacherTurn(lastUser) {
     }
   } else {
     const S = chat.sc.script;
-    if (chat.step >= S.length) return endChat();
+    if (chat.step >= S.length || Date.now() - chat.started >= CHAT_MS + 30_000) return endChat();
     const [t, tko, ans, ansKo] = S[chat.step];
     r = { reply: t, reply_ko: tko, hint: ans, hint_ko: ansKo };
   }
@@ -1032,7 +1033,7 @@ async function teacherTurn(lastUser) {
   if (r.better && lastUser) fixHtml = showFix(lastUser, r.better, r.better_ko);
   chat.hist.push({ who: "t", text: r.reply, ko: r.reply_ko });
   addMsg("t", r.reply, r.reply_ko);
-  callCap([lastUser ? `<div class="cc u">${esc(lastUser)}</div>` : "", fixHtml, `<div class="cc t">${esc(r.reply)}<div class="ko">${esc(r.reply_ko || "")}</div></div>`]);
+  callCap([lastUser ? `<div class="cc u">${esc(lastUser)}</div>` : "", fixHtml, `<div class="cc t">${esc(r.reply)}${r.reply_ko ? `<button class="kobtn">🇰🇷 무슨 뜻?</button>` : ""}<div class="ko">${esc(r.reply_ko || "")}</div></div>`]);
   chat.hint = r.hint ? { en: r.hint, ko: r.hint_ko } : null;
   const done = r.done || (chat.mode === "script" && chat.step >= chat.sc.script.length);
   tutorSay(r.reply, () => { if (done) endChat(); else if (chat.hands && cur === "chat") startListen(); });
@@ -1067,7 +1068,7 @@ async function userSays(text) {
       if (chat.step >= S.length) { callCap([`<div class="cc u">${esc(text)}</div>`, fix]); return endChat(); }
       const [t, tko, a2, a2ko] = S[chat.step];
       chat.hist.push({ who: "t", text: t, ko: tko }); addMsg("t", t, tko);
-      callCap([`<div class="cc u">${esc(text)}</div>`, fix, `<div class="cc t">${esc(t)}<div class="ko">${esc(tko)}</div></div>`]);
+      callCap([`<div class="cc u">${esc(text)}</div>`, fix, `<div class="cc t">${esc(t)}<button class="kobtn">🇰🇷 무슨 뜻?</button><div class="ko">${esc(tko)}</div></div>`]);
       chat.hint = { en: a2, ko: a2ko };
       tutorSay(t, () => { if (chat.hands && cur === "chat") startListen(); });
     }, ok ? 400 : 1200);
@@ -1102,7 +1103,36 @@ $("#chHint").onclick = () => {
   addBox("hintb", `💡 ${esc(chat.hint.en)}<div class="ko">${esc(chat.hint.ko || "")}</div>`).onclick = () => speak(chat.hint.en, 0.85);
   callCap([...$$("#callCap .cc").map((x) => x.outerHTML), `<div class="cc fixc">💡 ${esc(chat.hint.en)}<div class="ko" style="font-size:12.5px;color:var(--sub)">${esc(chat.hint.ko || "")}</div></div>`]);
 };
-$("#chKo").onclick = () => { const off = $("#chat").classList.toggle("noko"); $("#chKo").classList.toggle("on", !off); };
+$("#chKo").onclick = () => { const off = $("#chat").classList.toggle("noko"); $("#chKo").classList.toggle("on", !off); localStorage.setItem("bgm2_ko", off ? "0" : "1"); };
+/* 한국어 뜻은 먼저 숨김 → 영어로 먼저 듣고, 모르겠으면 «무슨 뜻?» 누르면 한국어로 보여 주고 읽어 줌 */
+let koVoice = null;
+function sayKo(text, then) {
+  stopRec(); stopTTS();
+  const u = new SpeechSynthesisUtterance(text); u.lang = "ko-KR"; u.rate = 1.1;
+  koVoice ||= speechSynthesis.getVoices().find((v) => /^ko/i.test(v.lang)) || null; if (koVoice) u.voice = koVoice;
+  u.onend = u.onerror = () => then?.();
+  speechSynthesis.speak(u);
+}
+$("#chat").addEventListener("click", (e) => {
+  const b = e.target.closest(".kobtn"); if (!b) return;
+  e.stopPropagation();
+  const ko = b.parentNode.querySelector(".ko"); if (!ko) return;
+  ko.classList.add("show"); b.classList.add("used");
+  sayKo(ko.textContent, () => { if (chat?.hands && cur === "chat" && !chat.busy) startListen(); });
+});
+/* 대화 시간 5분: 남은 시간 표시 · 다 되면 튜터가 다음 차례에 인사하고 마무리 */
+const CHAT_MS = 5 * 60_000;
+let clockT = null;
+function chatClock() {
+  clearInterval(clockT);
+  const draw = () => {
+    if (!chat || cur !== "chat") return clearInterval(clockT);
+    const left = Math.max(0, CHAT_MS - (Date.now() - chat.started));
+    $("#chTime").textContent = left ? `⏱ ${Math.floor(left / 60000)}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}` : "⏱ 마무리";
+    $("#chTime").classList.toggle("end", !left);
+  };
+  draw(); clockT = setInterval(draw, 1000);
+}
 $("#chView").onclick = () => { const call = $("#chat").classList.toggle("call"); $("#chView").textContent = call ? "💬 채팅" : "📞 통화"; };
 $("#chMic").onclick = () => {
   if (rec) { rec.stop(); return; }

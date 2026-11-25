@@ -340,3 +340,12 @@ input{font:inherit}
 #avatar:has(.a-sophie){background:radial-gradient(circle at 50% 38%,#effbf3,#c9f0d8)}
 /* 통화 화면에선 글 칸이 없으니 «보내기»도 숨김 (말하기 🎙 만) */
 #chat.call .chbar .send{display:none}
+/* 한국어 뜻: 먼저 숨김 · «무슨 뜻?» 누르면 보임 */
+.kobtn{display:none;margin-top:6px;padding:4px 10px;border-radius:99px;border:0;background:rgba(255,106,61,.14);color:#e0531f;font-size:12.5px;font-weight:800}
+#chat.noko .kobtn{display:inline-block}
+#chat.noko .kobtn.used{display:none}
+#chat.noko .cc .ko{display:none}
+#chat.noko .ko.show{display:block!important}
+.msgb .kobtn{margin-left:4px}
+.chtime{margin-left:auto;font-size:12px;font-weight:800;color:var(--sub);white-space:nowrap}
+.chtime.end{color:#e0531f}

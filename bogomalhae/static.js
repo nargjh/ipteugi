@@ -50,38 +50,46 @@ Reply ONLY with one JSON object, no code fence:
 Conversation so far (T = you, L = learner):
 {history}
 `;
-  // 구글이 옛 모델을 새 사용자에게 막음(11-25: 2.5-flash 404) → 새 것부터 · 붐비면(503) 다음 것 · 된 모델은 기억
-  const MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"];  // lite 가 1초 · flash 는 12초↑(11-25 잼)
+  // 구글 무료는 붐빌 때 한 번에 7~40초 (11-25 잼) → 빠른 lite 둘을 «동시에» 부르고 먼저 온 답을 씀 · 둘 다 안 되면 flash
+  const FAST = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"], SLOW = ["gemini-3.5-flash", "gemini-flash-latest"];
+  async function ask(m, key, prompt, ctl) {
+    const r = await realFetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
+      method: "POST", signal: ctl.signal, headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.8 } }) });
+    if (!r.ok) { const e = new Error("http"); e.status = r.status; throw e; }
+    const j = await r.json();
+    const t = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || "").join("");
+    const mm = t.match(/\{[\s\S]*\}/);
+    const o = JSON.parse(mm ? mm[0] : t);
+    if (!o.reply && !o.meaning) { const e = new Error("empty"); e.status = 0; throw e; }
+    return o;
+  }
+  async function race(models, key, prompt, ms) {
+    const ctls = models.map(() => new AbortController());
+    const timer = setTimeout(() => ctls.forEach((c) => c.abort()), ms);
+    try { return await Promise.any(models.map((m, i) => ask(m, key, prompt, ctls[i]))); }
+    finally { clearTimeout(timer); ctls.forEach((c) => c.abort()); }
+  }
   async function gemini(prompt) {
     const key = localStorage.getItem(KEY);
     if (!key) return { error: "AI 열쇠(무료 Gemini)를 아직 안 넣었어요" };
-    let last = "";
-    const good = localStorage.getItem("bgm2_gmodel");
-    for (const m of good ? [good, ...MODELS.filter((x) => x !== good)] : MODELS) {
-      let r;
-      try {
-        r = await realFetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
-          method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.8 } }) });
-      } catch { return { error: "인터넷 연결을 확인해 주세요" }; }
-      if (r.ok) {
-        localStorage.setItem("bgm2_gmodel", m);
-        const j = await r.json();
-        const t = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || "").join("");
-        const mm = t.match(/\{[\s\S]*\}/);
-        try { return JSON.parse(mm ? mm[0] : t); } catch { return { error: "AI 답을 못 읽었어요" }; }
+    if (!navigator.onLine) return { error: "인터넷 연결을 확인해 주세요" };
+    for (const [models, ms] of [[FAST, 12000], [FAST, 15000], [SLOW, 25000]]) {
+      try { return await race(models, key, prompt, ms); }
+      catch (agg) {
+        const st = (agg.errors || [agg]).map((e) => e.status);
+        if (st.some((s) => s === 400 || s === 401 || s === 403)) return { error: "AI 열쇠가 맞지 않아요 — 다시 넣어 주세요" };
+        if (st.includes(402)) return { error: "이 열쇠는 유료(선불) 프로젝트 것이라 돈이 다 떨어졌어요 — AI Studio 에서 «새 프로젝트»로 열쇠를 다시 만들면 무료예요" };
+        if (st.length && st.every((s) => s === 429)) return { error: "오늘 무료 AI 횟수를 다 썼어요 (1분 뒤 · 내일 다시)" };
       }
-      if (r.status === 400 || r.status === 401 || r.status === 403) return { error: "AI 열쇠가 맞지 않아요 — 다시 넣어 주세요" };
-      if (r.status === 402) return { error: "이 열쇠는 유료(선불) 프로젝트 것이라 돈이 다 떨어졌어요 — AI Studio 에서 «새 프로젝트»로 열쇠를 다시 만들면 무료예요" };
-      if (good === m) localStorage.removeItem("bgm2_gmodel");
-      last = r.status === 429 ? "오늘 무료 AI 횟수를 다 썼어요 (1분 뒤 · 내일 다시)" : `AI 가 답하지 않아요 (${r.status})`;  // 404·429·503 → 다음 모델
     }
-    return { error: last || "AI 답을 못 받았어요" };
+    return { error: "구글 AI 가 지금 너무 붐벼요 — 조금 뒤 다시" };
   }
   function teacher(b) {
-    const hist = (b.history || []).slice(-16).map((m) => `${m.who === "t" ? "T" : "L"}: ${m.text}`).join("\n") || "(start — greet the learner and open the situation)";
+    const hist = (b.history || []).slice(-10).map((m) => `${m.who === "t" ? "T" : "L"}: ${m.text}`).join("\n") || "(start — greet the learner and open the situation)";
     return gemini(TEACHER.replace("{tutor}", b.tutor || "Mina").replace("{role}", b.role || "a friendly English teacher")
-      .replace("{mission}", b.mission || "").replace("{history}", hist));
+      .replace("{mission}", b.mission || "").replace("{history}", hist)
+      + (b.wrap ? "\nIMPORTANT: The 5-minute lesson time is over. Reply to the learner, then say a warm, short goodbye in the same turn and set \"done\" to true.\n" : ""));
   }
 
   window.fetch = async (input, init) => {
