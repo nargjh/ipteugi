@@ -447,15 +447,55 @@ function scoreSpeech(target, heard) {
   while (i < T.length && j < H.length) { if (T[i] === H[j]) { ok.add(i); i++; j++; } else if (dp[i + 1][j] >= dp[i][j + 1]) i++; else j++; }
   return { pct: T.length ? Math.round(ok.size / T.length * 100) : 0, ok, T };
 }
+/* 말 받아쓰기 — 입트기(11-22)에서 안드로이드로 검증한 방식:
+   계속 듣기(아이폰만 한 문장) + 말 끝나고 2.5초 조용하면 끝 · 아무 말 없으면 9초 · 안드로이드가 앞 조각을 또 보내면 겹침 빼기 */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const lowT = (t) => t.toLowerCase().replace(/[^a-z0-9' ]/g, "").replace(/\s+/g, " ").trim();
+function mergeSegs(segs) {
+  let out = "";
+  for (const raw of segs) {
+    const t = (raw || "").trim(); if (!t) continue;
+    const a = lowT(out), b = lowT(t);
+    if (!a) { out = t; continue; }
+    if (b.startsWith(a)) { out = t; continue; }
+    if (a.includes(b)) continue;
+    const aw = a.split(" "), bw = b.split(" "), tw = t.split(/\s+/);
+    let ov = 0;
+    for (let k = Math.min(aw.length, bw.length); k > 0; k--) if (aw.slice(-k).join(" ") === bw.slice(0, k).join(" ")) { ov = k; break; }
+    out = (out + " " + tw.slice(ov).join(" ")).trim();
+  }
+  return out;
+}
 function listen(onDone, onPart) {
   if (!SR) { toast("이 브라우저는 말 알아듣기를 못 해요 (크롬·엣지·안드로이드 크롬)"); return false; }
   stopRec();
-  rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
-  let heard = "";
-  rec.onresult = (ev) => { heard = [...ev.results].map((r) => r[0].transcript).join(" "); onPart?.(heard); };
-  rec.onerror = (ev) => { if (ev.error !== "aborted") toast(ev.error === "not-allowed" ? "마이크를 허용해 주세요" : "다시 말해 주세요"); };
-  rec.onend = () => { const was = rec; rec = null; $(".mic")?.classList.remove("rec"); if (was) onDone(heard); };
-  rec.start();
+  const me = new SR(); rec = me;
+  me.lang = "en-US"; me.interimResults = true; me.continuous = !isIOS;
+  let finalText = "", interim = "", ended = false, lastHeard = Date.now(), heardAny = false;
+  const timer = setInterval(() => {
+    if (ended) return clearInterval(timer);
+    const quiet = Date.now() - lastHeard;
+    if ((heardAny && quiet > 2500) || (!heardAny && quiet > 9000)) { clearInterval(timer); try { me.stop(); } catch {} }
+  }, 300);
+  me.onresult = (ev) => {
+    lastHeard = Date.now(); heardAny = true;
+    const rs = [...ev.results];
+    finalText = mergeSegs(rs.filter((r) => r.isFinal).map((r) => r[0].transcript));
+    interim = rs.filter((r) => !r.isFinal).map((r) => r[0].transcript.trim()).join(" ");
+    onPart?.(mergeSegs([finalText, interim]));
+  };
+  me.onerror = (ev) => {
+    if (ev.error === "aborted" || ev.error === "no-speech") return;
+    toast(ev.error === "not-allowed" || ev.error === "service-not-allowed" ? "마이크를 허용해 주세요 (주소창 왼쪽 자물쇠 → 마이크)" : ev.error === "network" ? "인터넷이 끊겨 말을 못 알아들었어요" : "다시 말해 주세요");
+  };
+  me.onend = () => {
+    clearInterval(timer);
+    if (ended) return; ended = true;
+    const mine = rec === me; if (mine) rec = null;     // 다른 데서 끊었으면(stopRec) 대답 안 함
+    $(".mic")?.classList.remove("rec");
+    if (mine) onDone(mergeSegs([finalText, interim]));
+  };
+  try { me.start(); } catch { rec = null; toast("마이크를 켤 수 없어요 · 다시 눌러 주세요"); return false; }
   return true;
 }
 function openShadow(line, vid) {
@@ -1038,7 +1078,7 @@ async function userSays(text) {
 /* 손 안 대는 듣기: 튜터 말이 끝나면 자동으로 듣고, 말이 멈추면 보냄 */
 function startListen() {
   if (!SR || rec || !chat) return;
-  const ok = listen((heard) => { $("#chMic").classList.remove("rec"); status(""); if (heard) userSays(heard); else status("🎙 버튼을 누르고 말해요"); },
+  const ok = listen((heard) => { $("#chMic").classList.remove("rec"); status(""); if (heard) userSays(heard); else { status("🎙 못 들었어요 — 버튼을 누르고 다시 말해요"); } },
     (p) => { $("#chIn").value = p; callCap([`<div class="cc u">${esc(p)}…</div>`]); });
   if (ok) { $("#chMic").classList.add("rec"); status("🎙 듣고 있어요 — 말하세요"); }
 }
