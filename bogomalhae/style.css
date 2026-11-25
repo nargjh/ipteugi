@@ -338,3 +338,5 @@ input{font:inherit}
 #avatar:has(.a-mina){background:radial-gradient(circle at 50% 38%,#fff4ea,#ffd8bf)}
 #avatar:has(.a-oliver){background:radial-gradient(circle at 50% 38%,#eef3ff,#cfdcff)}
 #avatar:has(.a-sophie){background:radial-gradient(circle at 50% 38%,#effbf3,#c9f0d8)}
+/* 통화 화면에선 글 칸이 없으니 «보내기»도 숨김 (말하기 🎙 만) */
+#chat.call .chbar .send{display:none}
