@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="보고말해">
+<title>보고말해 — 영상으로 영어</title>
+<link rel="stylesheet" href="style.css?v=110">
+</head>
+<body>
+<div id="app">
+
+  <!-- S01 홈 -->
+  <section id="home" class="screen">
+    <header class="hbar">
+      <b class="logo">보고<i>말해</i></b>
+      <span class="chips-stat"><span title="연속 공부일">🔥 <b id="stStreak">0</b></span><span title="담은 표현">💬 <b id="stWords">0</b></span></span>
+    </header>
+    <div id="todayBox" class="today"></div>
+    <div class="sec-h"><h2>초보 추천 · 일상과 여행</h2></div>
+    <div id="catChips" class="cat-chips"></div>
+    <h3 class="row-h">지금 볼 만한 Shorts <button class="more" data-go="shorts">전체보기 ›</button></h3>
+    <div id="recShorts" class="hscroll"></div>
+    <h3 class="row-h">상황별 대화 영상</h3>
+    <div id="recVideos" class="vlist"></div>
+    <h3 class="row-h">미드·영화 장면</h3>
+    <div id="recDrama" class="vlist"></div>
+  </section>
+
+  <!-- S03 숏폼 -->
+  <section id="shorts" class="screen hidden">
+    <div id="reel" class="reel"></div>
+  </section>
+
+  <!-- S02 내 영상 -->
+  <section id="mine" class="screen hidden">
+    <header class="hbar"><b>내 영상</b></header>
+    <form id="urlForm" class="addbox">
+      <input id="urlIn" placeholder="https://www.youtube.com/watch?…" autocomplete="off" inputmode="url">
+      <button>추가</button>
+    </form>
+    <p id="urlMsg" class="msg">좋아하는 유튜브 영상·쇼츠 주소를 넣으면 이중자막 수업이 돼요. (영어 자막이 있는 영상)</p>
+    <div id="myVideos" class="vlist"></div>
+  </section>
+
+  <!-- S04 이중자막 시청 -->
+  <section id="watch" class="screen hidden dark">
+    <div class="wtop">
+      <button class="back" data-back>‹</button>
+      <span id="vTitle" class="wtitle"></span>
+    </div>
+    <div class="player-box"><div id="player"></div>
+      <div class="ptools">
+        <button id="bListen" class="ptool">🎧 리스닝 연습</button>
+        <button id="bKo" class="ptool on">한글 자막</button>
+      </div>
+    </div>
+    <div id="script" class="script"></div>
+    <div class="wctrl">
+      <div class="prog"><span id="tCur">0:00</span><input id="seek" type="range" min="0" max="1000" value="0"><span id="tDur">0:00</span></div>
+      <div class="btns">
+        <button id="bLoop" title="한 문장 반복">🔂</button>
+        <button id="bPrev" title="이전 문장">⏮</button>
+        <button id="bPlay" class="play" title="재생/멈춤">▶</button>
+        <button id="bNext" title="다음 문장">⏭</button>
+        <button id="bRate" title="속도">1x</button>
+      </div>
+      <button id="bShadow" class="shadow-btn">🎙 쉐도잉 연습</button>
+    </div>
+  </section>
+
+  <!-- S09 오늘의 복습 -->
+  <section id="review" class="screen hidden">
+    <div class="rv-top">
+      <button class="back" data-back>✕</button>
+      <div class="rv-bar"><i id="rvBar"></i></div>
+      <span id="rvNum" class="rv-num"></span>
+    </div>
+    <div id="rvBody" class="rv-body"></div>
+    <div id="rvFoot" class="rv-foot"></div>
+  </section>
+
+  <!-- S10 내 표현 -->
+  <section id="words" class="screen hidden">
+    <header class="hbar"><b>내 표현</b><span class="sub" id="wCount"></span></header>
+    <div class="wbtns">
+      <button id="bRandom" class="pbtn">🔀 랜덤 복습</button>
+      <button id="bFlash" class="pbtn">🃏 연습 플래시카드</button>
+    </div>
+    <input id="wSearch" class="search" placeholder="표현 찾기">
+    <div id="wordList" class="wlist"></div>
+  </section>
+
+  <!-- S11 AI 영어 선생님 -->
+  <section id="talk" class="screen hidden">
+    <header class="hbar"><b>연습</b><span class="chips-stat"><span>🔥 <b id="stStreak2">0</b></span></span></header>
+    <div id="aiNote" class="ai-note hidden"></div>
+    <h3 class="row-h">내 튜터 <span id="artPick" class="artpick"></span></h3>
+    <div id="tutorPick" class="tpick"></div>
+    <div class="modes">
+      <button data-mode="free"><span>💬</span>대화</button>
+      <button data-mode="role"><span>🎭</span>역할극</button>
+      <button data-mode="interview"><span>💼</span>면접</button>
+      <button data-mode="smalltalk"><span>👋</span>스몰토크</button>
+    </div>
+    <h3 class="row-h">짧은 시나리오</h3>
+    <div id="scChips" class="sc-chips"></div>
+    <h3 class="row-h">여행·일상 역할극</h3>
+    <div id="scList" class="vlist"></div>
+    <div style="height:70px"></div>
+    <button class="free-btn" data-mode="free">🎙 자유 대화 시작</button>
+  </section>
+
+  <section id="chat" class="screen hidden">
+    <div class="chat-top">
+      <button class="back" data-back>✕</button>
+      <b id="chTitle"></b>
+      <button id="chView" class="ptool" title="통화/채팅 바꾸기">💬 채팅</button>
+      <button id="chSpd" class="ptool" title="튜터 말 빠르기">1x</button>
+      <button id="chKo" class="ptool on">한글</button>
+    </div>
+    <div id="chMission" class="mission"></div>
+    <div class="stage">
+      <div id="avatar" class="avatar"></div>
+      <video id="selfCam" class="selfcam hidden" autoplay muted playsinline></video>
+      <div id="callCap" class="callcap"></div>
+      <div id="chStatus" class="chstatus"></div>
+    </div>
+    <div id="chLog" class="chlog"></div>
+    <div class="chbar">
+      <button id="chCam" title="내 카메라">📷</button>
+      <button id="chHint" title="힌트">💡</button>
+      <input id="chIn" placeholder="말하거나 써요 (한국어도 OK)" autocomplete="off">
+      <button id="chMic" class="bigmic" title="말하기">🎙</button>
+      <button id="chSend" class="send">↑</button>
+    </div>
+  </section>
+
+  <nav class="tabbar">
+    <button data-go="home"><span>🏠</span>홈</button>
+    <button data-go="shorts"><span>▶️</span>숏폼</button>
+    <button data-go="talk"><span>🤖</span>AI 회화</button>
+    <button data-go="mine"><span>🎬</span>내 영상</button>
+    <button data-go="review"><span>🔁</span>복습<b id="nDue" class="badge hidden">0</b></button>
+    <button data-go="words"><span>📒</span>내 표현</button>
+  </nav>
+</div>
+
+<!-- 아래에서 올라오는 판 (표현 카드 · 쉐도잉 · 표현 상세) -->
+<div id="sheetBg" class="sheet-bg hidden"></div>
+<div id="sheet" class="sheet hidden"></div>
+
+<div class="mini-player"><div id="miniPlayer"></div></div>
+<div id="toast" class="toast"></div>
+
+<script src="data/expressions.js?v=2"></script>
+<script src="data/lessons.js?v=2"></script>
+<script src="data/scenarios.js?v=4"></script>
+<script src="data/tutors.js?v=5"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/",
+  "@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js"}}</script>
+<script src="animals.js?v=1"></script>
+<script>window.BGM_STATIC=1</script>
+<script src="data/ttsmap.js"></script>
+<script src="static.js"></script>
+<script src="talkpic.js?v=15"></script>
+<script type="module" src="vrm.js?v=9"></script>
+<script src="app.js?v=17"></script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+</body>
+</html>
